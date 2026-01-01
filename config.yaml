@@ -1,0 +1,44 @@
+# NapCat Bot Platform Configuration
+
+napcat:
+  # NapCat OneBot HTTP API address
+  http_url: "http://127.0.0.1:3000"
+  # NapCat OneBot WebSocket address (for receiving messages)
+  ws_url: "ws://127.0.0.1:3001"
+  # Access token (leave empty if not set)
+  token: ""
+
+bot:
+  # Bot admin QQ numbers (can manage bot)
+  admins:
+    - 2577954317
+  # Command prefix for triggering plugins
+  command_prefix: "/"
+  # Enable debug logging
+  debug: true
+
+# Plugin manager settings
+plugin_manager:
+  # Enable external plugin system (gRPC based)
+  enabled: true
+  # Directory to store plugin binaries
+  plugin_dir: "./plugins-bin"
+  # Directory to store plugin configs
+  config_dir: "./plugins-config"
+  # gRPC server port for plugins to connect back
+  grpc_port: 50051
+  # Plugins to auto-start on boot
+  auto_start: []
+
+# Admin API server
+admin_server:
+  # Enable admin HTTP API for plugin management
+  enabled: true
+  # Listen address
+  addr: ":8080"
+
+# Built-in plugins (legacy, will be deprecated)
+plugins:
+  enabled:
+    - echo
+    - help

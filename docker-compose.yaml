@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # NapCat - QQ Client
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: napcat
+    environment:
+      - NAPCAT_GID=0
+      - NAPCAT_UID=0
+      - ACCOUNT=3824557104
+      - WS_ENABLE=true
+      - HTTP_ENABLE=true
+      - HTTP_POST_ENABLE=false
+    ports:
+      - "6099:6099"   # WebUI
+      - "3000:3000"   # HTTP API
+      - "3001:3001"   # WebSocket
+    volumes:
+      - ./napcat-data:/app/napcat/config
+    restart: unless-stopped
+    networks:
+      - bot-network
+
+  # Bot Platform
+  bot-platform:
+    build: ./bot-platform
+    container_name: bot-platform
+    depends_on:
+      - napcat
+    environment:
+      - NAPCAT_HTTP_URL=http://napcat:3000
+      - NAPCAT_WS_URL=ws://napcat:3001
+    ports:
+      - "8080:8080"   # Admin API
+      - "50051:50051" # gRPC for plugins
+    volumes:
+      - ./bot-platform/plugins-bin:/app/plugins-bin
+      - ./bot-platform/plugins-config:/app/plugins-config
+      - ./bot-platform/config.yaml:/app/config.yaml
+    restart: unless-stopped
+    networks:
+      - bot-network
+
+networks:
+  bot-network:
+    driver: bridge
