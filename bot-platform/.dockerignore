@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+LICENSE
+
+# Build artifacts
+bot
+bot-test
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+testdata/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data
+plugins-bin/
+plugins-config/
+napcat-data/
+*.log
+
+# Docker
+Dockerfile*
+docker-compose*.yaml
+.dockerignore
+
+# Scripts
+build-and-push.sh
+*.sh
+
+# Config (will be mounted as volume)
+config.yaml

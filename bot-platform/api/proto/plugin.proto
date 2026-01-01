@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package plugin;
+
+option go_package = "github.com/DaikonSushi/bot-platform/api/proto;proto";
+
+// Plugin service - plugins implement this
+service PluginService {
+  // Get plugin metadata
+  rpc GetInfo(Empty) returns (PluginInfo);
+  
+  // Handle incoming message
+  rpc OnMessage(MessageEvent) returns (HandleResult);
+  
+  // Handle command
+  rpc OnCommand(CommandEvent) returns (HandleResult);
+  
+  // Health check
+  rpc Health(Empty) returns (HealthResponse);
+  
+  // Shutdown plugin gracefully
+  rpc Shutdown(Empty) returns (Empty);
+}
+
+// Bot callback service - core platform implements this
+service BotService {
+  // Send message
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  
+  // Get user info
+  rpc GetUserInfo(GetUserInfoRequest) returns (UserInfo);
+  
+  // Get group info
+  rpc GetGroupInfo(GetGroupInfoRequest) returns (GroupInfo);
+  
+  // Log message
+  rpc Log(LogRequest) returns (Empty);
+  
+  // Upload file to group
+  rpc UploadGroupFile(UploadGroupFileRequest) returns (UploadFileResponse);
+  
+  // Upload file to private chat
+  rpc UploadPrivateFile(UploadPrivateFileRequest) returns (UploadFileResponse);
+  
+  // Call NapCat API directly (for advanced use cases)
+  rpc CallAPI(CallAPIRequest) returns (CallAPIResponse);
+}
+
+message Empty {}
+
+message PluginInfo {
+  string name = 1;
+  string version = 2;
+  string description = 3;
+  string author = 4;
+  repeated string commands = 5;
+  bool handle_all_messages = 6;
+}
+
+message MessageEvent {
+  string message_id = 1;
+  int64 user_id = 2;
+  int64 group_id = 3;       // 0 if private message
+  string message_type = 4;   // "private" or "group"
+  string raw_message = 5;
+  repeated MessageSegment segments = 6;
+  int64 timestamp = 7;
+  UserInfo sender = 8;
+}
+
+message MessageSegment {
+  string type = 1;    // text, image, at, face, etc.
+  map<string, string> data = 2;
+}
+
+message CommandEvent {
+  MessageEvent message = 1;
+  string command = 2;
+  repeated string args = 3;
+}
+
+message HandleResult {
+  bool handled = 1;
+  string error = 2;
+}
+
+message SendMessageRequest {
+  string message_type = 1;   // "private" or "group"
+  int64 user_id = 2;
+  int64 group_id = 3;
+  repeated MessageSegment segments = 4;
+}
+
+message SendMessageResponse {
+  int64 message_id = 1;
+  string error = 2;
+}
+
+message GetUserInfoRequest {
+  int64 user_id = 1;
+}
+
+message UserInfo {
+  int64 user_id = 1;
+  string nickname = 2;
+  string card = 3;           // group card name
+  string role = 4;           // owner, admin, member
+}
+
+message GetGroupInfoRequest {
+  int64 group_id = 1;
+}
+
+message GroupInfo {
+  int64 group_id = 1;
+  string group_name = 2;
+  int32 member_count = 3;
+}
+
+message LogRequest {
+  string level = 1;   // debug, info, warn, error
+  string message = 2;
+}
+
+message HealthResponse {
+  bool healthy = 1;
+  string status = 2;
+}
+
+message UploadGroupFileRequest {
+  int64 group_id = 1;
+  string file_path = 2;    // Absolute path to file
+  string file_name = 3;    // Display name
+  string folder = 4;       // Folder path (optional, default "/")
+}
+
+message UploadPrivateFileRequest {
+  int64 user_id = 1;
+  string file_path = 2;    // Absolute path to file
+  string file_name = 3;    // Display name
+}
+
+message UploadFileResponse {
+  bool success = 1;
+  string error = 2;
+  string file_id = 3;      // File ID returned by QQ
+}
+
+message CallAPIRequest {
+  string action = 1;                    // API action name
+  map<string, string> params = 2;       // API parameters
+}
+
+message CallAPIResponse {
+  bool success = 1;
+  string error = 2;
+  bytes data = 3;          // Raw JSON response
+}
