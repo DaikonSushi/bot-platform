@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -28,10 +29,24 @@ func main() {
 		listPlugins(addr)
 	case "install", "i":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: botctl install <github_repo_url>")
+			fmt.Println("Usage: botctl install [--start] <github_repo_url>")
 			os.Exit(1)
 		}
-		installPlugin(addr, os.Args[2])
+		// Parse --start flag
+		autoStart := false
+		repoURL := ""
+		for _, arg := range os.Args[2:] {
+			if arg == "--start" || arg == "-s" {
+				autoStart = true
+			} else if !strings.HasPrefix(arg, "-") {
+				repoURL = arg
+			}
+		}
+		if repoURL == "" {
+			fmt.Println("Usage: botctl install [--start] <github_repo_url>")
+			os.Exit(1)
+		}
+		installPlugin(addr, repoURL, autoStart)
 	case "start":
 		if len(os.Args) < 3 {
 			fmt.Println("Usage: botctl start <plugin_name>")
@@ -68,13 +83,14 @@ Usage:
   botctl <command> [arguments]
 
 Commands:
-  list, ls              List all installed plugins
-  install, i <url>      Install plugin from GitHub repo URL
-  start <name>          Start a plugin
-  stop <name>           Stop a running plugin
-  uninstall, rm <name>  Uninstall a plugin
-  health                Check platform health
-  help                  Show this help
+  list, ls                      List all installed plugins
+  install, i [--start] <url>    Install plugin from GitHub repo URL
+                                --start, -s: Auto-start after install
+  start <name>                  Start a plugin
+  stop <name>                   Stop a running plugin
+  uninstall, rm <name>          Uninstall a plugin
+  health                        Check platform health
+  help                          Show this help
 
 Environment:
   BOT_ADMIN_ADDR        Admin API address (default: http://127.0.0.1:8080)
@@ -82,6 +98,7 @@ Environment:
 Examples:
   botctl list
   botctl install https://github.com/user/plugin-weather
+  botctl install --start DaikonSushi/plugin-echo
   botctl start weather
   botctl stop weather
   botctl uninstall weather`)
@@ -139,10 +156,10 @@ func listPlugins(addr string) {
 	w.Flush()
 }
 
-func installPlugin(addr, repoURL string) {
+func installPlugin(addr, repoURL string, autoStart bool) {
 	fmt.Printf("Installing plugin from %s...\n", repoURL)
 
-	body, _ := json.Marshal(map[string]string{"repo_url": repoURL})
+	body, _ := json.Marshal(map[string]interface{}{"repo_url": repoURL, "auto_start": autoStart})
 	resp, err := http.Post(addr+"/api/plugins/install", "application/json", bytes.NewReader(body))
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -150,7 +167,7 @@ func installPlugin(addr, repoURL string) {
 	}
 	defer resp.Body.Close()
 
-	printResult(resp.Body)
+	printInstallResult(resp.Body, autoStart)
 }
 
 func startPlugin(addr, name string) {
@@ -238,4 +255,37 @@ func printResult(body io.Reader) {
 	}
 
 	fmt.Printf("✅ %s\n", result.Message)
+}
+
+func printInstallResult(body io.Reader, autoStart bool) {
+	var result struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+			Started bool   `json:"started"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(body).Decode(&result); err != nil {
+		fmt.Printf("Error parsing response: %v\n", err)
+		os.Exit(1)
+	}
+
+	if result.Code != 0 {
+		fmt.Printf("❌ Error: %s\n", result.Message)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✅ %s\n", result.Message)
+	fmt.Printf("   Name: %s\n", result.Data.Name)
+	fmt.Printf("   Version: %s\n", result.Data.Version)
+	if autoStart {
+		if result.Data.Started {
+			fmt.Printf("   Status: 🟢 started\n")
+		} else {
+			fmt.Printf("   Status: 🔴 failed to start\n")
+		}
+	}
 }

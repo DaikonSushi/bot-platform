@@ -51,9 +51,9 @@ type PluginInfo struct {
 type Message struct {
 	ID        string
 	UserID    int64
-	GroupID   int64   // 0 for private messages
-	Type      string  // "private" or "group"
-	Text      string  // Raw text content
+	GroupID   int64  // 0 for private messages
+	Type      string // "private" or "group"
+	Text      string // Raw text content
 	Segments  []MessageSegment
 	Timestamp int64
 	Sender    *UserInfo
@@ -97,7 +97,7 @@ func (b *BotClient) SendPrivateMessage(userID int64, segments ...MessageSegment)
 		return 0, err
 	}
 	if resp.Error != "" {
-		return 0, fmt.Errorf(resp.Error)
+		return 0, fmt.Errorf("%s", resp.Error)
 	}
 	return resp.MessageId, nil
 }
@@ -121,7 +121,7 @@ func (b *BotClient) SendGroupMessage(groupID int64, segments ...MessageSegment) 
 		return 0, err
 	}
 	if resp.Error != "" {
-		return 0, fmt.Errorf(resp.Error)
+		return 0, fmt.Errorf("%s", resp.Error)
 	}
 	return resp.MessageId, nil
 }

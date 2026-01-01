@@ -2,30 +2,37 @@ package bot
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 
+	pb "github.com/DaikonSushi/bot-platform/api/proto"
 	"github.com/DaikonSushi/bot-platform/internal/config"
 	"github.com/DaikonSushi/bot-platform/internal/message"
 	"github.com/DaikonSushi/bot-platform/internal/plugin"
+	"github.com/DaikonSushi/bot-platform/internal/pluginmgr"
 )
 
 // Bot represents the main bot instance
 type Bot struct {
-	config        *config.Config
-	httpClient    *http.Client
-	wsConn        *websocket.Conn
-	pluginManager *plugin.Manager
-	running       bool
-	mu            sync.RWMutex
-	stopChan      chan struct{}
+	config           *config.Config
+	httpClient       *http.Client
+	wsConn           *websocket.Conn
+	wsMu             sync.Mutex // Protects wsConn
+	pluginManager    *plugin.Manager
+	extPluginManager *pluginmgr.PluginManager
+	running          bool
+	mu               sync.RWMutex
+	stopChan         chan struct{}
 }
 
 // New creates a new bot instance
@@ -43,6 +50,11 @@ func New(cfg *config.Config) *Bot {
 // RegisterPlugin registers a plugin with the bot
 func (b *Bot) RegisterPlugin(p plugin.Plugin) {
 	b.pluginManager.Register(p)
+}
+
+// SetExternalPluginManager sets the external plugin manager
+func (b *Bot) SetExternalPluginManager(mgr *pluginmgr.PluginManager) {
+	b.extPluginManager = mgr
 }
 
 // Start starts the bot and connects to NapCat
@@ -82,15 +94,27 @@ func (b *Bot) Stop() {
 	b.running = false
 	close(b.stopChan)
 
+	b.wsMu.Lock()
 	if b.wsConn != nil {
 		b.wsConn.Close()
+		b.wsConn = nil
 	}
+	b.wsMu.Unlock()
 
 	log.Println("[Bot] Bot stopped")
 }
 
 // connectWebSocket establishes WebSocket connection
 func (b *Bot) connectWebSocket() error {
+	b.wsMu.Lock()
+	defer b.wsMu.Unlock()
+
+	// Close existing connection if any
+	if b.wsConn != nil {
+		b.wsConn.Close()
+		b.wsConn = nil
+	}
+
 	header := http.Header{}
 	if b.config.NapCat.Token != "" {
 		header.Set("Authorization", "Bearer "+b.config.NapCat.Token)
@@ -108,24 +132,62 @@ func (b *Bot) connectWebSocket() error {
 
 // eventLoop processes incoming WebSocket events
 func (b *Bot) eventLoop() {
+	reconnectAttempt := 0
+	maxReconnectDelay := 60 * time.Second
+	baseDelay := 1 * time.Second
+
 	for {
 		select {
 		case <-b.stopChan:
 			return
 		default:
-			_, msg, err := b.wsConn.ReadMessage()
-			if err != nil {
-				log.Printf("[Bot] WebSocket read error: %v", err)
-				// Try to reconnect
-				time.Sleep(5 * time.Second)
-				if err := b.connectWebSocket(); err != nil {
-					log.Printf("[Bot] Reconnect failed: %v", err)
-				}
+			b.wsMu.Lock()
+			conn := b.wsConn
+			b.wsMu.Unlock()
+
+			if conn == nil {
+				// No connection, try to reconnect
+				b.handleReconnect(&reconnectAttempt, baseDelay, maxReconnectDelay)
 				continue
 			}
 
+			_, msg, err := conn.ReadMessage()
+			if err != nil {
+				log.Printf("[Bot] WebSocket read error: %v", err)
+				b.handleReconnect(&reconnectAttempt, baseDelay, maxReconnectDelay)
+				continue
+			}
+
+			// Reset reconnect counter on successful read
+			reconnectAttempt = 0
+
 			go b.handleEvent(msg)
 		}
+	}
+}
+
+// handleReconnect handles reconnection with exponential backoff
+func (b *Bot) handleReconnect(attempt *int, baseDelay, maxDelay time.Duration) {
+	// Calculate delay with exponential backoff
+	delay := time.Duration(math.Min(
+		float64(baseDelay)*math.Pow(2, float64(*attempt)),
+		float64(maxDelay),
+	))
+
+	log.Printf("[Bot] Reconnecting in %v (attempt %d)...", delay, *attempt+1)
+
+	select {
+	case <-b.stopChan:
+		return
+	case <-time.After(delay):
+	}
+
+	if err := b.connectWebSocket(); err != nil {
+		log.Printf("[Bot] Reconnect failed: %v", err)
+		*attempt++
+	} else {
+		log.Printf("[Bot] Reconnected successfully")
+		*attempt = 0
 	}
 }
 
@@ -156,8 +218,64 @@ func (b *Bot) handleEvent(data []byte) {
 		IsAdmin: b.config.IsAdmin(event.UserID),
 	}
 
-	// Dispatch to plugin manager
-	b.pluginManager.HandleEvent(ctx)
+	// Dispatch to built-in plugin manager first
+	handled := b.pluginManager.HandleEvent(ctx)
+
+	// If not handled and external plugin manager exists, try external plugins
+	if !handled && b.extPluginManager != nil {
+		b.dispatchToExternalPlugins(ctx)
+	}
+}
+
+// dispatchToExternalPlugins dispatches the event to external plugins
+func (b *Bot) dispatchToExternalPlugins(ctx *plugin.Context) {
+	// Check if it's a command
+	text := strings.TrimSpace(ctx.Event.GetText())
+	if !strings.HasPrefix(text, b.config.Bot.CommandPrefix) {
+		// Not a command, dispatch as message to all external plugins
+		pbEvent := b.convertToPbMessageEvent(ctx.Event)
+		b.extPluginManager.DispatchMessage(context.Background(), pbEvent)
+		return
+	}
+
+	// Parse command
+	text = strings.TrimPrefix(text, b.config.Bot.CommandPrefix)
+	parts := strings.Fields(text)
+	if len(parts) == 0 {
+		return
+	}
+
+	cmd := parts[0]
+	args := parts[1:]
+
+	// Create command event
+	cmdEvent := &pb.CommandEvent{
+		Message: b.convertToPbMessageEvent(ctx.Event),
+		Command: cmd,
+		Args:    args,
+	}
+
+	// Dispatch to external plugin manager
+	handled := b.extPluginManager.DispatchCommand(context.Background(), cmdEvent)
+	if !handled {
+		log.Printf("[Bot] Command '%s' not handled by any plugin", cmd)
+	}
+}
+
+// convertToPbMessageEvent converts internal event to protobuf event
+func (b *Bot) convertToPbMessageEvent(event *message.Event) *pb.MessageEvent {
+	return &pb.MessageEvent{
+		MessageId:   fmt.Sprintf("%d", event.MessageID),
+		UserId:      event.UserID,
+		GroupId:     event.GroupID,
+		MessageType: string(event.MessageType),
+		RawMessage:  event.RawMessage,
+		Timestamp:   event.Time,
+		Sender: &pb.UserInfo{
+			UserId:   event.Sender.UserID,
+			Nickname: event.Sender.Nickname,
+		},
+	}
 }
 
 // SendPrivateMessage sends a private message
@@ -251,4 +369,14 @@ func (b *Bot) callAPIWithResponse(action string, params map[string]interface{}) 
 // GetPluginManager returns the plugin manager
 func (b *Bot) GetPluginManager() *plugin.Manager {
 	return b.pluginManager
+}
+
+// SendPrivateText sends a text message to a user (implements MessageSender interface)
+func (b *Bot) SendPrivateText(userID int64, text string) error {
+	return b.SendPrivateMessage(userID, message.NewMessage().Text(text))
+}
+
+// SendGroupText sends a text message to a group (implements MessageSender interface)
+func (b *Bot) SendGroupText(groupID int64, text string) error {
+	return b.SendGroupMessage(groupID, message.NewMessage().Text(text))
 }

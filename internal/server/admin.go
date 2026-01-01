@@ -44,7 +44,7 @@ func (s *AdminServer) handlePlugins(w http.ResponseWriter, r *http.Request) {
 	}
 
 	plugins := s.pm.ListPlugins()
-	
+
 	type pluginResponse struct {
 		Name        string   `json:"name"`
 		Version     string   `json:"version"`
@@ -84,7 +84,8 @@ func (s *AdminServer) handleInstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		RepoURL string `json:"repo_url"`
+		RepoURL   string `json:"repo_url"`
+		AutoStart bool   `json:"auto_start"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "Invalid request body", http.StatusBadRequest)
@@ -102,6 +103,23 @@ func (s *AdminServer) handleInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-start plugin if requested
+	if req.AutoStart {
+		if err := s.pm.StartPlugin(r.Context(), meta.Name); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"code":    0,
+				"message": "Plugin installed but failed to start: " + err.Error(),
+				"data": map[string]interface{}{
+					"name":    meta.Name,
+					"version": meta.Version,
+					"started": false,
+				},
+			})
+			return
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"code":    0,
@@ -109,6 +127,7 @@ func (s *AdminServer) handleInstall(w http.ResponseWriter, r *http.Request) {
 		"data": map[string]interface{}{
 			"name":    meta.Name,
 			"version": meta.Version,
+			"started": req.AutoStart,
 		},
 	})
 }
@@ -200,7 +219,7 @@ func (s *AdminServer) handleUninstall(w http.ResponseWriter, r *http.Request) {
 // handleHealth returns health status
 func (s *AdminServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	plugins := s.pm.GetRunningPlugins()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"code":    0,

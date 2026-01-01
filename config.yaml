@@ -28,7 +28,8 @@ plugin_manager:
   # gRPC server port for plugins to connect back
   grpc_port: 50051
   # Plugins to auto-start on boot
-  auto_start: []
+  auto_start:
+    - echo-ext
 
 # Admin API server
 admin_server:
@@ -40,5 +41,5 @@ admin_server:
 # Built-in plugins (legacy, will be deprecated)
 plugins:
   enabled:
-    - echo
+    # - echo  # Disabled: using external echo-ext plugin instead
     - help

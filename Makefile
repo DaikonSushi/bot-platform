@@ -50,6 +50,11 @@ run: build
 clean:
 	rm -f $(BINARY_NAME) $(BINARY_NAME)_* $(CTL_NAME) $(CTL_NAME)_*
 	rm -f examples/plugin-weather/weather-plugin*
+	rm -f examples/plugin-echo-external/echo-ext-plugin*
+
+# Clean all including downloaded plugins
+clean-all: clean
+	find $(PLUGIN_DIR) -type f ! -name '.gitkeep' -delete 2>/dev/null || true
 
 # Setup directories
 setup:

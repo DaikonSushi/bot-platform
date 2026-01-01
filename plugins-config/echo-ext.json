@@ -1,0 +1,1 @@
+{"name":"echo-ext","version":"1.0.0","description":"A simple external echo plugin - echoes back your message","author":"hovanzhang","commands":["echo","say","repeat"],"repo_url":"DaikonSushi/plugin-echo","binary_name":"echo-ext-plugin_darwin_arm64"}

@@ -1,0 +1,9 @@
+{
+  "name": "example-plugin",
+  "version": "1.0.0",
+  "description": "Example external plugin configuration",
+  "author": "your-name",
+  "commands": ["cmd1", "cmd2"],
+  "repo_url": "github-user/repo-name",
+  "binary_name": "plugin-binary_darwin_arm64"
+}

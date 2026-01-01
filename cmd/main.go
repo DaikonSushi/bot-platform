@@ -3,12 +3,18 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"google.golang.org/grpc"
+
+	pb "github.com/DaikonSushi/bot-platform/api/proto"
 	"github.com/DaikonSushi/bot-platform/internal/bot"
+	"github.com/DaikonSushi/bot-platform/internal/botservice"
 	"github.com/DaikonSushi/bot-platform/internal/config"
 	"github.com/DaikonSushi/bot-platform/internal/pluginmgr"
 	"github.com/DaikonSushi/bot-platform/internal/server"
@@ -32,9 +38,23 @@ func main() {
 	// Create bot instance
 	b := bot.New(cfg)
 
-	// Register built-in plugins
-	b.RegisterPlugin(echo.New())
-	b.RegisterPlugin(help.New(b.GetPluginManager()))
+	// Start BotService gRPC server for external plugins to call back
+	grpcPort := cfg.PluginManager.GRPCPort
+	botSvc := botservice.NewService(b)
+	grpcServer := grpc.NewServer()
+	pb.RegisterBotServiceServer(grpcServer, botSvc)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
+	if err != nil {
+		log.Fatalf("Failed to listen on gRPC port %d: %v", grpcPort, err)
+	}
+
+	go func() {
+		log.Printf("[Main] BotService gRPC server starting on port %d", grpcPort)
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Printf("[Main] gRPC server error: %v", err)
+		}
+	}()
 
 	// Initialize external plugin manager if enabled
 	var extPluginMgr *pluginmgr.PluginManager
@@ -46,6 +66,7 @@ func main() {
 		extPluginMgr = pluginmgr.NewPluginManager(
 			cfg.PluginManager.PluginDir,
 			cfg.PluginManager.ConfigDir,
+			grpcPort,
 		)
 
 		// Load installed plugins
@@ -58,7 +79,32 @@ func main() {
 			extPluginMgr.AutoStartPlugins(context.Background(), cfg.PluginManager.AutoStart)
 		}
 
+		// Set external plugin manager to bot
+		b.SetExternalPluginManager(extPluginMgr)
+
 		log.Println("[Main] External plugin manager initialized")
+	}
+
+	// Register built-in plugins based on config
+	enabledPlugins := make(map[string]bool)
+	for _, name := range cfg.Plugins.Enabled {
+		enabledPlugins[name] = true
+	}
+
+	// If no plugins specified in config, enable all by default
+	if len(enabledPlugins) == 0 {
+		enabledPlugins["echo"] = true
+		enabledPlugins["help"] = true
+	}
+
+	if enabledPlugins["echo"] {
+		b.RegisterPlugin(echo.New())
+		log.Println("[Main] Registered built-in plugin: echo")
+	}
+
+	if enabledPlugins["help"] {
+		b.RegisterPlugin(help.New(b.GetPluginManager(), extPluginMgr))
+		log.Println("[Main] Registered built-in plugin: help")
 	}
 
 	// Start admin server if enabled
@@ -87,11 +133,12 @@ func main() {
 	// Graceful shutdown
 	log.Println("[Main] Shutting down...")
 
+	// Stop gRPC server
+	grpcServer.GracefulStop()
+
 	// Stop external plugins
 	if extPluginMgr != nil {
-		for _, p := range extPluginMgr.GetRunningPlugins() {
-			extPluginMgr.StopPlugin(context.Background(), p.Info.Name)
-		}
+		extPluginMgr.Shutdown()
 	}
 
 	b.Stop()

@@ -63,7 +63,7 @@ func (p *WeatherPlugin) OnCommand(ctx context.Context, bot *pluginsdk.BotClient,
 func getWeather(city string) (string, error) {
 	// Using wttr.in free weather API
 	url := fmt.Sprintf("https://wttr.in/%s?format=j1", city)
-	
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
@@ -76,9 +76,9 @@ func getWeather(city string) (string, error) {
 
 	var data struct {
 		CurrentCondition []struct {
-			TempC      string `json:"temp_C"`
-			TempF      string `json:"temp_F"`
-			Humidity   string `json:"humidity"`
+			TempC       string `json:"temp_C"`
+			TempF       string `json:"temp_F"`
+			Humidity    string `json:"humidity"`
 			WeatherDesc []struct {
 				Value string `json:"value"`
 			} `json:"weatherDesc"`
@@ -118,11 +118,11 @@ func getWeather(city string) (string, error) {
 
 	return fmt.Sprintf(
 		"🌍 %s 天气\n"+
-		"━━━━━━━━━━━━\n"+
-		"🌡️ 温度: %s°C (%s°F)\n"+
-		"💧 湿度: %s%%\n"+
-		"💨 风速: %s km/h\n"+
-		"☁️ 状况: %s",
+			"━━━━━━━━━━━━\n"+
+			"🌡️ 温度: %s°C (%s°F)\n"+
+			"💧 湿度: %s%%\n"+
+			"💨 风速: %s km/h\n"+
+			"☁️ 状况: %s",
 		location,
 		current.TempC, current.TempF,
 		current.Humidity,

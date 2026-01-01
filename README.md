@@ -33,9 +33,9 @@ napcat:
 
 bot:
   admins:
-    - 2577954317   # 管理员 QQ 号
+    - 123456789   # 管理员 QQ 号
   command_prefix: "/"
-  debug: true
+  debug: false
 
 plugin_manager:
   enabled: true
@@ -224,13 +224,18 @@ bot-platform/
 │   ├── echo/
 │   └── help/
 └── examples/            # 示例外部插件
+    ├── plugin-echo-external/
     └── plugin-weather/
 ```
 
 ## 内置命令
 
-- `/echo <message>` - 回显消息
-- `/help` - 显示帮助信息
+- `/help` - 显示帮助信息（列出所有可用插件和命令）
+
+## 外部插件示例
+
+- `echo-ext` - Echo 插件（支持 `/echo`, `/say`, `/repeat` 命令）
+- `plugin-weather` - 天气查询插件
 
 ## License
 

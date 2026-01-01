@@ -23,14 +23,14 @@ import (
 
 // PluginState represents the runtime state of a plugin
 type PluginState struct {
-	Info       *PluginMeta
-	Process    *os.Process
-	Client     pb.PluginServiceClient
-	Conn       *grpc.ClientConn
-	Port       int
-	Status     string // "running", "stopped", "error"
-	StartedAt  time.Time
-	LastError  string
+	Info      *PluginMeta
+	Process   *os.Process
+	Client    pb.PluginServiceClient
+	Conn      *grpc.ClientConn
+	Port      int
+	Status    string // "running", "stopped", "error"
+	StartedAt time.Time
+	LastError string
 }
 
 // PluginMeta represents plugin metadata
@@ -40,8 +40,64 @@ type PluginMeta struct {
 	Description string   `json:"description"`
 	Author      string   `json:"author"`
 	Commands    []string `json:"commands"`
-	RepoURL     string   `json:"repo_url"`      // GitHub repo URL
-	BinaryName  string   `json:"binary_name"`   // Binary file name
+	RepoURL     string   `json:"repo_url"`    // GitHub repo URL
+	BinaryName  string   `json:"binary_name"` // Binary file name
+}
+
+// PortPool manages reusable ports
+type PortPool struct {
+	mu        sync.Mutex
+	available []int
+	inUse     map[int]bool
+	nextPort  int
+	minPort   int
+	maxPort   int
+}
+
+// NewPortPool creates a new port pool
+func NewPortPool(minPort, maxPort int) *PortPool {
+	return &PortPool{
+		available: make([]int, 0),
+		inUse:     make(map[int]bool),
+		nextPort:  minPort,
+		minPort:   minPort,
+		maxPort:   maxPort,
+	}
+}
+
+// Acquire gets an available port
+func (p *PortPool) Acquire() (int, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Try to reuse a released port first
+	if len(p.available) > 0 {
+		port := p.available[len(p.available)-1]
+		p.available = p.available[:len(p.available)-1]
+		p.inUse[port] = true
+		return port, nil
+	}
+
+	// Allocate a new port
+	if p.nextPort > p.maxPort {
+		return 0, fmt.Errorf("port pool exhausted (min: %d, max: %d)", p.minPort, p.maxPort)
+	}
+
+	port := p.nextPort
+	p.nextPort++
+	p.inUse[port] = true
+	return port, nil
+}
+
+// Release returns a port to the pool
+func (p *PortPool) Release(port int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.inUse[port] {
+		delete(p.inUse, port)
+		p.available = append(p.available, port)
+	}
 }
 
 // PluginManager manages plugin lifecycle
@@ -50,20 +106,113 @@ type PluginManager struct {
 	plugins      map[string]*PluginState
 	pluginDir    string
 	configDir    string
-	nextPort     int
+	portPool     *PortPool
+	grpcPort     int // BotService gRPC port for plugins to call back
 	botService   pb.BotServiceServer
 	commandIndex map[string]string // command -> plugin name
+	healthTicker *time.Ticker
+	stopHealth   chan struct{}
 }
 
 // NewPluginManager creates a new plugin manager
-func NewPluginManager(pluginDir, configDir string) *PluginManager {
-	return &PluginManager{
+func NewPluginManager(pluginDir, configDir string, grpcPort int) *PluginManager {
+	pm := &PluginManager{
 		plugins:      make(map[string]*PluginState),
 		pluginDir:    pluginDir,
 		configDir:    configDir,
-		nextPort:     50100,
+		portPool:     NewPortPool(50100, 51000), // Allow up to 900 plugins
+		grpcPort:     grpcPort,
 		commandIndex: make(map[string]string),
+		stopHealth:   make(chan struct{}),
 	}
+
+	// Start health check goroutine
+	pm.startHealthCheck()
+
+	return pm
+}
+
+// startHealthCheck starts periodic health checking for all running plugins
+func (pm *PluginManager) startHealthCheck() {
+	pm.healthTicker = time.NewTicker(30 * time.Second)
+
+	go func() {
+		for {
+			select {
+			case <-pm.stopHealth:
+				pm.healthTicker.Stop()
+				return
+			case <-pm.healthTicker.C:
+				pm.checkPluginHealth()
+			}
+		}
+	}()
+}
+
+// checkPluginHealth checks health of all running plugins
+func (pm *PluginManager) checkPluginHealth() {
+	pm.mu.RLock()
+	plugins := make([]*PluginState, 0)
+	for _, state := range pm.plugins {
+		if state.Status == "running" {
+			plugins = append(plugins, state)
+		}
+	}
+	pm.mu.RUnlock()
+
+	for _, state := range plugins {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, err := state.Client.Health(ctx, &pb.Empty{})
+		cancel()
+
+		if err != nil {
+			log.Printf("[PluginMgr] Plugin %s health check failed: %v", state.Info.Name, err)
+			pm.handlePluginCrash(state.Info.Name)
+		}
+	}
+}
+
+// handlePluginCrash handles a crashed plugin
+func (pm *PluginManager) handlePluginCrash(name string) {
+	pm.mu.Lock()
+	state, exists := pm.plugins[name]
+	if !exists || state.Status != "running" {
+		pm.mu.Unlock()
+		return
+	}
+
+	// Mark as error
+	state.Status = "error"
+	state.LastError = "plugin crashed or became unresponsive"
+
+	// Release port
+	if state.Port > 0 {
+		pm.portPool.Release(state.Port)
+	}
+
+	// Clean up connection
+	if state.Conn != nil {
+		state.Conn.Close()
+	}
+
+	// Remove command index
+	for _, cmd := range state.Info.Commands {
+		delete(pm.commandIndex, cmd)
+	}
+
+	pm.mu.Unlock()
+
+	log.Printf("[PluginMgr] Plugin %s crashed, attempting restart...", name)
+
+	// Attempt to restart the plugin
+	go func() {
+		time.Sleep(5 * time.Second)
+		if err := pm.StartPlugin(context.Background(), name); err != nil {
+			log.Printf("[PluginMgr] Failed to restart plugin %s: %v", name, err)
+		} else {
+			log.Printf("[PluginMgr] Successfully restarted plugin %s", name)
+		}
+	}()
 }
 
 // SetBotService sets the bot service for plugins to call back
@@ -130,7 +279,7 @@ func (pm *PluginManager) InstallFromGitHub(ctx context.Context, repoURL string) 
 
 	// Download binary
 	log.Printf("[PluginMgr] Downloading %s...", binaryName)
-	
+
 	pluginPath := filepath.Join(pm.pluginDir, binaryName)
 	if err := pm.downloadFile(ctx, downloadURL, pluginPath); err != nil {
 		return nil, fmt.Errorf("failed to download: %w", err)
@@ -226,45 +375,73 @@ func (pm *PluginManager) StartPlugin(ctx context.Context, name string) error {
 		return fmt.Errorf("plugin binary not found: %s", binaryPath)
 	}
 
-	// Allocate port
-	port := pm.nextPort
-	pm.nextPort++
+	// Allocate port from pool
+	port, err := pm.portPool.Acquire()
+	if err != nil {
+		return fmt.Errorf("failed to allocate port: %w", err)
+	}
 
 	// Start plugin process
-	cmd := exec.Command(binaryPath, 
+	cmd := exec.Command(binaryPath,
 		"--port", fmt.Sprintf("%d", port),
-		"--core-addr", "127.0.0.1:50051",
+		"--core-addr", fmt.Sprintf("127.0.0.1:%d", pm.grpcPort),
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
+		pm.portPool.Release(port)
 		return fmt.Errorf("failed to start plugin: %w", err)
 	}
 
-	// Wait for plugin to be ready
-	time.Sleep(500 * time.Millisecond)
+	// Wait for plugin to be ready with retries
+	var conn *grpc.ClientConn
+	var client pb.PluginServiceClient
 
-	// Connect to plugin
-	conn, err := grpc.Dial(
-		fmt.Sprintf("127.0.0.1:%d", port),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-		grpc.WithTimeout(5*time.Second),
-	)
-	if err != nil {
-		cmd.Process.Kill()
-		return fmt.Errorf("failed to connect to plugin: %w", err)
-	}
+	maxRetries := 10
+	retryInterval := 200 * time.Millisecond
 
-	client := pb.NewPluginServiceClient(conn)
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryInterval)
 
-	// Verify connection with health check
-	healthResp, err := client.Health(ctx, &pb.Empty{})
-	if err != nil || !healthResp.Healthy {
-		conn.Close()
-		cmd.Process.Kill()
-		return fmt.Errorf("plugin health check failed")
+		// Use context with timeout instead of deprecated grpc.WithTimeout
+		dialCtx, dialCancel := context.WithTimeout(ctx, 2*time.Second)
+		conn, err = grpc.DialContext(
+			dialCtx,
+			fmt.Sprintf("127.0.0.1:%d", port),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock(),
+		)
+		dialCancel()
+
+		if err != nil {
+			if i == maxRetries-1 {
+				cmd.Process.Kill()
+				pm.portPool.Release(port)
+				return fmt.Errorf("failed to connect to plugin after %d retries: %w", maxRetries, err)
+			}
+			continue
+		}
+
+		client = pb.NewPluginServiceClient(conn)
+
+		// Verify connection with health check
+		healthCtx, healthCancel := context.WithTimeout(ctx, 2*time.Second)
+		healthResp, err := client.Health(healthCtx, &pb.Empty{})
+		healthCancel()
+
+		if err != nil || !healthResp.Healthy {
+			conn.Close()
+			if i == maxRetries-1 {
+				cmd.Process.Kill()
+				pm.portPool.Release(port)
+				return fmt.Errorf("plugin health check failed after %d retries", maxRetries)
+			}
+			continue
+		}
+
+		// Success!
+		break
 	}
 
 	// Register plugin
@@ -309,15 +486,34 @@ func (pm *PluginManager) StopPlugin(ctx context.Context, name string) error {
 		cancel()
 	}
 
+	// Wait for process to exit gracefully
+	done := make(chan struct{})
+	go func() {
+		if state.Process != nil {
+			state.Process.Wait()
+		}
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Process exited gracefully
+	case <-time.After(5 * time.Second):
+		// Timeout, force kill
+		if state.Process != nil {
+			state.Process.Kill()
+			state.Process.Wait()
+		}
+	}
+
 	// Close connection
 	if state.Conn != nil {
 		state.Conn.Close()
 	}
 
-	// Kill process if still running
-	if state.Process != nil {
-		state.Process.Kill()
-		state.Process.Wait()
+	// Release port back to pool
+	if state.Port > 0 {
+		pm.portPool.Release(state.Port)
 	}
 
 	// Remove command index
@@ -328,6 +524,26 @@ func (pm *PluginManager) StopPlugin(ctx context.Context, name string) error {
 	state.Status = "stopped"
 	log.Printf("[PluginMgr] Stopped plugin: %s", name)
 	return nil
+}
+
+// Shutdown stops all plugins and cleans up
+func (pm *PluginManager) Shutdown() {
+	// Stop health check
+	close(pm.stopHealth)
+
+	// Stop all running plugins
+	pm.mu.RLock()
+	names := make([]string, 0)
+	for name, state := range pm.plugins {
+		if state.Status == "running" {
+			names = append(names, name)
+		}
+	}
+	pm.mu.RUnlock()
+
+	for _, name := range names {
+		pm.StopPlugin(context.Background(), name)
+	}
 }
 
 // UninstallPlugin removes a plugin
@@ -368,11 +584,11 @@ func (pm *PluginManager) ListPlugins() []*PluginState {
 
 	// Load all installed plugins from config dir
 	files, _ := filepath.Glob(filepath.Join(pm.configDir, "*.json"))
-	
+
 	result := make([]*PluginState, 0)
 	for _, f := range files {
 		name := strings.TrimSuffix(filepath.Base(f), ".json")
-		
+
 		if state, exists := pm.plugins[name]; exists {
 			result = append(result, state)
 		} else {
@@ -417,6 +633,20 @@ func (pm *PluginManager) GetRunningPlugins() []*PluginState {
 	return result
 }
 
+// GetAllCommands returns all registered commands from running plugins
+func (pm *PluginManager) GetAllCommands() map[string]*PluginMeta {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	result := make(map[string]*PluginMeta)
+	for cmd, pluginName := range pm.commandIndex {
+		if state, exists := pm.plugins[pluginName]; exists && state.Status == "running" {
+			result[cmd] = state.Info
+		}
+	}
+	return result
+}
+
 // DispatchMessage dispatches a message to all running plugins
 func (pm *PluginManager) DispatchMessage(ctx context.Context, event *pb.MessageEvent) {
 	pm.mu.RLock()
@@ -440,11 +670,14 @@ func (pm *PluginManager) DispatchMessage(ctx context.Context, event *pb.MessageE
 
 // DispatchCommand dispatches a command to the appropriate plugin
 func (pm *PluginManager) DispatchCommand(ctx context.Context, event *pb.CommandEvent) bool {
+	log.Printf("[PluginMgr] DispatchCommand: looking for command '%s', commandIndex: %v", event.Command, pm.commandIndex)
 	plugin := pm.GetPluginByCommand(event.Command)
 	if plugin == nil {
+		log.Printf("[PluginMgr] No plugin found for command: %s", event.Command)
 		return false
 	}
 
+	log.Printf("[PluginMgr] Dispatching command '%s' to plugin '%s'", event.Command, plugin.Info.Name)
 	result, err := plugin.Client.OnCommand(ctx, event)
 	if err != nil {
 		log.Printf("[PluginMgr] Plugin %s OnCommand error: %v", plugin.Info.Name, err)
