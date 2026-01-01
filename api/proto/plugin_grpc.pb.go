@@ -287,10 +287,13 @@ var PluginService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	BotService_SendMessage_FullMethodName  = "/plugin.BotService/SendMessage"
-	BotService_GetUserInfo_FullMethodName  = "/plugin.BotService/GetUserInfo"
-	BotService_GetGroupInfo_FullMethodName = "/plugin.BotService/GetGroupInfo"
-	BotService_Log_FullMethodName          = "/plugin.BotService/Log"
+	BotService_SendMessage_FullMethodName       = "/plugin.BotService/SendMessage"
+	BotService_GetUserInfo_FullMethodName       = "/plugin.BotService/GetUserInfo"
+	BotService_GetGroupInfo_FullMethodName      = "/plugin.BotService/GetGroupInfo"
+	BotService_Log_FullMethodName               = "/plugin.BotService/Log"
+	BotService_UploadGroupFile_FullMethodName   = "/plugin.BotService/UploadGroupFile"
+	BotService_UploadPrivateFile_FullMethodName = "/plugin.BotService/UploadPrivateFile"
+	BotService_CallAPI_FullMethodName           = "/plugin.BotService/CallAPI"
 )
 
 // BotServiceClient is the client API for BotService service.
@@ -307,6 +310,12 @@ type BotServiceClient interface {
 	GetGroupInfo(ctx context.Context, in *GetGroupInfoRequest, opts ...grpc.CallOption) (*GroupInfo, error)
 	// Log message
 	Log(ctx context.Context, in *LogRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Upload file to group
+	UploadGroupFile(ctx context.Context, in *UploadGroupFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error)
+	// Upload file to private chat
+	UploadPrivateFile(ctx context.Context, in *UploadPrivateFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error)
+	// Call NapCat API directly (for advanced use cases)
+	CallAPI(ctx context.Context, in *CallAPIRequest, opts ...grpc.CallOption) (*CallAPIResponse, error)
 }
 
 type botServiceClient struct {
@@ -357,6 +366,36 @@ func (c *botServiceClient) Log(ctx context.Context, in *LogRequest, opts ...grpc
 	return out, nil
 }
 
+func (c *botServiceClient) UploadGroupFile(ctx context.Context, in *UploadGroupFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UploadFileResponse)
+	err := c.cc.Invoke(ctx, BotService_UploadGroupFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *botServiceClient) UploadPrivateFile(ctx context.Context, in *UploadPrivateFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UploadFileResponse)
+	err := c.cc.Invoke(ctx, BotService_UploadPrivateFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *botServiceClient) CallAPI(ctx context.Context, in *CallAPIRequest, opts ...grpc.CallOption) (*CallAPIResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CallAPIResponse)
+	err := c.cc.Invoke(ctx, BotService_CallAPI_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BotServiceServer is the server API for BotService service.
 // All implementations must embed UnimplementedBotServiceServer
 // for forward compatibility.
@@ -371,6 +410,12 @@ type BotServiceServer interface {
 	GetGroupInfo(context.Context, *GetGroupInfoRequest) (*GroupInfo, error)
 	// Log message
 	Log(context.Context, *LogRequest) (*Empty, error)
+	// Upload file to group
+	UploadGroupFile(context.Context, *UploadGroupFileRequest) (*UploadFileResponse, error)
+	// Upload file to private chat
+	UploadPrivateFile(context.Context, *UploadPrivateFileRequest) (*UploadFileResponse, error)
+	// Call NapCat API directly (for advanced use cases)
+	CallAPI(context.Context, *CallAPIRequest) (*CallAPIResponse, error)
 	mustEmbedUnimplementedBotServiceServer()
 }
 
@@ -392,6 +437,15 @@ func (UnimplementedBotServiceServer) GetGroupInfo(context.Context, *GetGroupInfo
 }
 func (UnimplementedBotServiceServer) Log(context.Context, *LogRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Log not implemented")
+}
+func (UnimplementedBotServiceServer) UploadGroupFile(context.Context, *UploadGroupFileRequest) (*UploadFileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UploadGroupFile not implemented")
+}
+func (UnimplementedBotServiceServer) UploadPrivateFile(context.Context, *UploadPrivateFileRequest) (*UploadFileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UploadPrivateFile not implemented")
+}
+func (UnimplementedBotServiceServer) CallAPI(context.Context, *CallAPIRequest) (*CallAPIResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CallAPI not implemented")
 }
 func (UnimplementedBotServiceServer) mustEmbedUnimplementedBotServiceServer() {}
 func (UnimplementedBotServiceServer) testEmbeddedByValue()                    {}
@@ -486,6 +540,60 @@ func _BotService_Log_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BotService_UploadGroupFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UploadGroupFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BotServiceServer).UploadGroupFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BotService_UploadGroupFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BotServiceServer).UploadGroupFile(ctx, req.(*UploadGroupFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BotService_UploadPrivateFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UploadPrivateFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BotServiceServer).UploadPrivateFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BotService_UploadPrivateFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BotServiceServer).UploadPrivateFile(ctx, req.(*UploadPrivateFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BotService_CallAPI_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CallAPIRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BotServiceServer).CallAPI(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BotService_CallAPI_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BotServiceServer).CallAPI(ctx, req.(*CallAPIRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BotService_ServiceDesc is the grpc.ServiceDesc for BotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -508,6 +616,18 @@ var BotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Log",
 			Handler:    _BotService_Log_Handler,
+		},
+		{
+			MethodName: "UploadGroupFile",
+			Handler:    _BotService_UploadGroupFile_Handler,
+		},
+		{
+			MethodName: "UploadPrivateFile",
+			Handler:    _BotService_UploadPrivateFile_Handler,
+		},
+		{
+			MethodName: "CallAPI",
+			Handler:    _BotService_CallAPI_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

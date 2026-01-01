@@ -158,6 +158,59 @@ func (b *BotClient) Log(level, message string) {
 	})
 }
 
+// UploadGroupFile uploads a file to a group
+func (b *BotClient) UploadGroupFile(groupID int64, filePath, fileName string, folder ...string) error {
+	folderPath := "/"
+	if len(folder) > 0 {
+		folderPath = folder[0]
+	}
+	
+	resp, err := b.client.UploadGroupFile(context.Background(), &pb.UploadGroupFileRequest{
+		GroupId:  groupID,
+		FilePath: filePath,
+		FileName: fileName,
+		Folder:   folderPath,
+	})
+	if err != nil {
+		return err
+	}
+	if !resp.Success {
+		return fmt.Errorf("upload failed: %s", resp.Error)
+	}
+	return nil
+}
+
+// UploadPrivateFile uploads a file to a private chat
+func (b *BotClient) UploadPrivateFile(userID int64, filePath, fileName string) error {
+	resp, err := b.client.UploadPrivateFile(context.Background(), &pb.UploadPrivateFileRequest{
+		UserId:   userID,
+		FilePath: filePath,
+		FileName: fileName,
+	})
+	if err != nil {
+		return err
+	}
+	if !resp.Success {
+		return fmt.Errorf("upload failed: %s", resp.Error)
+	}
+	return nil
+}
+
+// CallAPI calls a NapCat API directly and returns the raw JSON response
+func (b *BotClient) CallAPI(action string, params map[string]string) ([]byte, error) {
+	resp, err := b.client.CallAPI(context.Background(), &pb.CallAPIRequest{
+		Action: action,
+		Params: params,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, fmt.Errorf("API call failed: %s", resp.Error)
+	}
+	return resp.Data, nil
+}
+
 // Text creates a text message segment
 func Text(content string) MessageSegment {
 	return MessageSegment{

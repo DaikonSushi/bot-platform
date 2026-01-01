@@ -2,6 +2,17 @@
 
 基于 NapCat 的 QQ 机器人消息处理平台，支持插件热加载、Docker 部署、K8s 友好。
 
+## 📚 文档导航
+
+- [快速开始](#快速开始) - 本地开发和运行
+- [Docker 部署](docs/DEPLOYMENT_SUMMARY.md) - 部署总结和快速指南
+- [构建 Docker 镜像](docs/DOCKER_BUILD.md) - 跨平台构建指南
+- [多架构部署](docs/MULTI_ARCH.md) - ARM64 + AMD64 支持
+- [服务器部署](docs/DEPLOY_SERVER.md) - Linux 服务器部署步骤
+- [更新指南](docs/UPDATE_GUIDE.md) - 如何更新已部署的服务
+- [Help 插件配置](docs/HELP_CONFIGURATION.md) - 自定义帮助菜单
+- [插件开发](docs/PLUGIN_DEVELOPMENT.md) - 开发外部插件
+
 ## 架构特点
 
 - **插件解耦**：插件编译为独立二进制，通过 gRPC 与主平台通信
@@ -47,7 +58,17 @@ plugin_manager:
 admin_server:
   enabled: true
   addr: ":8080"
+
+# Help 插件自定义 (可选)
+help:
+  title: "🤖 My Bot Help"
+  description: "Welcome! Here are all available commands:"
+  footer: "💡 Tip: Use /plugin list to manage plugins"
+  show_builtin: true
+  show_external: true
 ```
+
+详细的 help 配置说明请查看 [docs/HELP_CONFIGURATION.md](docs/HELP_CONFIGURATION.md)
 
 ### 3. 运行
 
@@ -56,6 +77,38 @@ admin_server:
 ```
 
 ## 插件管理
+
+### 使用 Bot 消息命令 (推荐) 🆕
+
+直接在 QQ 中给 Bot 发送消息来管理插件（仅管理员可用）：
+
+```
+# 安装插件
+/plugin install https://github.com/user/plugin-weather
+/pm install https://github.com/user/plugin-weather
+
+# 启动插件
+/plugin start weather
+/pm start weather
+
+# 停止插件
+/plugin stop weather
+
+# 重启插件
+/plugin restart weather
+
+# 列出所有插件
+/plugin list
+/pm ls
+
+# 查看插件详情
+/plugin info weather
+
+# 卸载插件
+/plugin uninstall weather
+```
+
+详细使用说明请查看 [plugins/pluginctl/README.md](plugins/pluginctl/README.md)
 
 ### 使用命令行工具 (botctl)
 
@@ -230,7 +283,15 @@ bot-platform/
 
 ## 内置命令
 
-- `/help` - 显示帮助信息（列出所有可用插件和命令）
+- `/help` 或 `/menu` - 显示帮助信息（列出所有可用插件和命令）
+- `/plugin` 或 `/pm` - 插件管理命令（仅管理员）
+  - `install <repo_url>` - 从 GitHub 安装插件
+  - `start <name>` - 启动插件
+  - `stop <name>` - 停止插件
+  - `restart <name>` - 重启插件
+  - `list` - 列出所有插件
+  - `info <name>` - 查看插件详情
+  - `uninstall <name>` - 卸载插件
 
 ## 外部插件示例
 

@@ -43,3 +43,17 @@ plugins:
   enabled:
     # - echo  # Disabled: using external echo-ext plugin instead
     - help
+    - pluginctl
+
+# Help plugin customization
+help:
+  # Custom title for help menu (supports emoji)
+  title: "🤖 My Bot Help"
+  # Custom description/header text
+  description: "Welcome! Here are all available commands:"
+  # Custom footer text
+  footer: "💡 Tip: Use /plugin list to manage external plugins"
+  # Show built-in plugins (default: true)
+  show_builtin: true
+  # Show external plugins (default: true)
+  show_external: true

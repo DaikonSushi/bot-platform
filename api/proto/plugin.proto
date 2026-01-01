@@ -35,6 +35,15 @@ service BotService {
   
   // Log message
   rpc Log(LogRequest) returns (Empty);
+  
+  // Upload file to group
+  rpc UploadGroupFile(UploadGroupFileRequest) returns (UploadFileResponse);
+  
+  // Upload file to private chat
+  rpc UploadPrivateFile(UploadPrivateFileRequest) returns (UploadFileResponse);
+  
+  // Call NapCat API directly (for advanced use cases)
+  rpc CallAPI(CallAPIRequest) returns (CallAPIResponse);
 }
 
 message Empty {}
@@ -116,4 +125,34 @@ message LogRequest {
 message HealthResponse {
   bool healthy = 1;
   string status = 2;
+}
+
+message UploadGroupFileRequest {
+  int64 group_id = 1;
+  string file_path = 2;    // Absolute path to file
+  string file_name = 3;    // Display name
+  string folder = 4;       // Folder path (optional, default "/")
+}
+
+message UploadPrivateFileRequest {
+  int64 user_id = 1;
+  string file_path = 2;    // Absolute path to file
+  string file_name = 3;    // Display name
+}
+
+message UploadFileResponse {
+  bool success = 1;
+  string error = 2;
+  string file_id = 3;      // File ID returned by QQ
+}
+
+message CallAPIRequest {
+  string action = 1;                    // API action name
+  map<string, string> params = 2;       // API parameters
+}
+
+message CallAPIResponse {
+  bool success = 1;
+  string error = 2;
+  bytes data = 3;          // Raw JSON response
 }

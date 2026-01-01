@@ -380,3 +380,33 @@ func (b *Bot) SendPrivateText(userID int64, text string) error {
 func (b *Bot) SendGroupText(groupID int64, text string) error {
 	return b.SendGroupMessage(groupID, message.NewMessage().Text(text))
 }
+
+// UploadGroupFile uploads a file to a group
+func (b *Bot) UploadGroupFile(groupID int64, filePath, fileName, folder string) error {
+	params := map[string]interface{}{
+		"group_id": groupID,
+		"file":     filePath,
+		"name":     fileName,
+	}
+	
+	// Add folder parameter
+	if folder != "" {
+		params["folder"] = folder
+	}
+	
+	return b.callAPI("upload_group_file", params)
+}
+
+// UploadPrivateFile uploads a file to a private chat
+func (b *Bot) UploadPrivateFile(userID int64, filePath, fileName string) error {
+	return b.callAPI("upload_private_file", map[string]interface{}{
+		"user_id": userID,
+		"file":    filePath,
+		"name":    fileName,
+	})
+}
+
+// CallNapCatAPI calls a NapCat API directly and returns the response
+func (b *Bot) CallNapCatAPI(action string, params map[string]interface{}) ([]byte, error) {
+	return b.callAPIWithResponse(action, params)
+}

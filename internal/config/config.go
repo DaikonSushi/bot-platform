@@ -13,6 +13,7 @@ type Config struct {
 	PluginManager PluginManagerConfig `yaml:"plugin_manager"`
 	AdminServer   AdminServerConfig   `yaml:"admin_server"`
 	Plugins       PluginsConfig       `yaml:"plugins"`
+	Help          HelpConfig          `yaml:"help"`
 }
 
 // NapCatConfig holds NapCat connection settings
@@ -49,6 +50,15 @@ type PluginsConfig struct {
 	Enabled []string `yaml:"enabled"`
 }
 
+// HelpConfig holds help plugin customization settings
+type HelpConfig struct {
+	Title       string `yaml:"title"`        // Custom title for help menu
+	Description string `yaml:"description"` // Custom description/header text
+	Footer      string `yaml:"footer"`      // Custom footer text
+	ShowBuiltin bool   `yaml:"show_builtin"` // Show built-in plugins (default: true)
+	ShowExternal bool  `yaml:"show_external"` // Show external plugins (default: true)
+}
+
 // Load reads and parses config from yaml file
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
@@ -76,6 +86,15 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.AdminServer.Addr == "" {
 		cfg.AdminServer.Addr = ":8080"
+	}
+	// Help defaults
+	if cfg.Help.Title == "" {
+		cfg.Help.Title = "📖 Bot Help Menu"
+	}
+	if !cfg.Help.ShowBuiltin && !cfg.Help.ShowExternal {
+		// If both are false, enable both by default
+		cfg.Help.ShowBuiltin = true
+		cfg.Help.ShowExternal = true
 	}
 
 	return &cfg, nil

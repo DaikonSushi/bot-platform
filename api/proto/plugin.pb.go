@@ -845,6 +845,306 @@ func (x *HealthResponse) GetStatus() string {
 	return ""
 }
 
+type UploadGroupFileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GroupId       int64                  `protobuf:"varint,1,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
+	FilePath      string                 `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"` // Absolute path to file
+	FileName      string                 `protobuf:"bytes,3,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"` // Display name
+	Folder        string                 `protobuf:"bytes,4,opt,name=folder,proto3" json:"folder,omitempty"`                     // Folder path (optional, default "/")
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadGroupFileRequest) Reset() {
+	*x = UploadGroupFileRequest{}
+	mi := &file_api_proto_plugin_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadGroupFileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadGroupFileRequest) ProtoMessage() {}
+
+func (x *UploadGroupFileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_plugin_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadGroupFileRequest.ProtoReflect.Descriptor instead.
+func (*UploadGroupFileRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_plugin_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *UploadGroupFileRequest) GetGroupId() int64 {
+	if x != nil {
+		return x.GroupId
+	}
+	return 0
+}
+
+func (x *UploadGroupFileRequest) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *UploadGroupFileRequest) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+func (x *UploadGroupFileRequest) GetFolder() string {
+	if x != nil {
+		return x.Folder
+	}
+	return ""
+}
+
+type UploadPrivateFileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	FilePath      string                 `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"` // Absolute path to file
+	FileName      string                 `protobuf:"bytes,3,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"` // Display name
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadPrivateFileRequest) Reset() {
+	*x = UploadPrivateFileRequest{}
+	mi := &file_api_proto_plugin_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadPrivateFileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadPrivateFileRequest) ProtoMessage() {}
+
+func (x *UploadPrivateFileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_plugin_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadPrivateFileRequest.ProtoReflect.Descriptor instead.
+func (*UploadPrivateFileRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_plugin_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *UploadPrivateFileRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *UploadPrivateFileRequest) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *UploadPrivateFileRequest) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+type UploadFileResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	FileId        string                 `protobuf:"bytes,3,opt,name=file_id,json=fileId,proto3" json:"file_id,omitempty"` // File ID returned by QQ
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadFileResponse) Reset() {
+	*x = UploadFileResponse{}
+	mi := &file_api_proto_plugin_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadFileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadFileResponse) ProtoMessage() {}
+
+func (x *UploadFileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_plugin_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadFileResponse.ProtoReflect.Descriptor instead.
+func (*UploadFileResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_plugin_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *UploadFileResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *UploadFileResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *UploadFileResponse) GetFileId() string {
+	if x != nil {
+		return x.FileId
+	}
+	return ""
+}
+
+type CallAPIRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Action        string                 `protobuf:"bytes,1,opt,name=action,proto3" json:"action,omitempty"`                                                                           // API action name
+	Params        map[string]string      `protobuf:"bytes,2,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // API parameters
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CallAPIRequest) Reset() {
+	*x = CallAPIRequest{}
+	mi := &file_api_proto_plugin_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CallAPIRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CallAPIRequest) ProtoMessage() {}
+
+func (x *CallAPIRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_plugin_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CallAPIRequest.ProtoReflect.Descriptor instead.
+func (*CallAPIRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_plugin_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *CallAPIRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *CallAPIRequest) GetParams() map[string]string {
+	if x != nil {
+		return x.Params
+	}
+	return nil
+}
+
+type CallAPIResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Data          []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"` // Raw JSON response
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CallAPIResponse) Reset() {
+	*x = CallAPIResponse{}
+	mi := &file_api_proto_plugin_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CallAPIResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CallAPIResponse) ProtoMessage() {}
+
+func (x *CallAPIResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_plugin_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CallAPIResponse.ProtoReflect.Descriptor instead.
+func (*CallAPIResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_plugin_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *CallAPIResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *CallAPIResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *CallAPIResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 var File_api_proto_plugin_proto protoreflect.FileDescriptor
 
 const file_api_proto_plugin_proto_rawDesc = "" +
@@ -912,19 +1212,45 @@ const file_api_proto_plugin_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"B\n" +
 	"\x0eHealthResponse\x12\x18\n" +
 	"\ahealthy\x18\x01 \x01(\bR\ahealthy\x12\x16\n" +
-	"\x06status\x18\x02 \x01(\tR\x06status2\x8a\x02\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\"\x85\x01\n" +
+	"\x16UploadGroupFileRequest\x12\x19\n" +
+	"\bgroup_id\x18\x01 \x01(\x03R\agroupId\x12\x1b\n" +
+	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x1b\n" +
+	"\tfile_name\x18\x03 \x01(\tR\bfileName\x12\x16\n" +
+	"\x06folder\x18\x04 \x01(\tR\x06folder\"m\n" +
+	"\x18UploadPrivateFileRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1b\n" +
+	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x1b\n" +
+	"\tfile_name\x18\x03 \x01(\tR\bfileName\"]\n" +
+	"\x12UploadFileResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12\x17\n" +
+	"\afile_id\x18\x03 \x01(\tR\x06fileId\"\x9f\x01\n" +
+	"\x0eCallAPIRequest\x12\x16\n" +
+	"\x06action\x18\x01 \x01(\tR\x06action\x12:\n" +
+	"\x06params\x18\x02 \x03(\v2\".plugin.CallAPIRequest.ParamsEntryR\x06params\x1a9\n" +
+	"\vParamsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"U\n" +
+	"\x0fCallAPIResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12\x12\n" +
+	"\x04data\x18\x03 \x01(\fR\x04data2\x8a\x02\n" +
 	"\rPluginService\x12,\n" +
 	"\aGetInfo\x12\r.plugin.Empty\x1a\x12.plugin.PluginInfo\x127\n" +
 	"\tOnMessage\x12\x14.plugin.MessageEvent\x1a\x14.plugin.HandleResult\x127\n" +
 	"\tOnCommand\x12\x14.plugin.CommandEvent\x1a\x14.plugin.HandleResult\x12/\n" +
 	"\x06Health\x12\r.plugin.Empty\x1a\x16.plugin.HealthResponse\x12(\n" +
-	"\bShutdown\x12\r.plugin.Empty\x1a\r.plugin.Empty2\xfb\x01\n" +
+	"\bShutdown\x12\r.plugin.Empty\x1a\r.plugin.Empty2\xd9\x03\n" +
 	"\n" +
 	"BotService\x12F\n" +
 	"\vSendMessage\x12\x1a.plugin.SendMessageRequest\x1a\x1b.plugin.SendMessageResponse\x12;\n" +
 	"\vGetUserInfo\x12\x1a.plugin.GetUserInfoRequest\x1a\x10.plugin.UserInfo\x12>\n" +
 	"\fGetGroupInfo\x12\x1b.plugin.GetGroupInfoRequest\x1a\x11.plugin.GroupInfo\x12(\n" +
-	"\x03Log\x12\x12.plugin.LogRequest\x1a\r.plugin.EmptyB\x1eZ\x1cbot-platform/api/proto;protob\x06proto3"
+	"\x03Log\x12\x12.plugin.LogRequest\x1a\r.plugin.Empty\x12M\n" +
+	"\x0fUploadGroupFile\x12\x1e.plugin.UploadGroupFileRequest\x1a\x1a.plugin.UploadFileResponse\x12Q\n" +
+	"\x11UploadPrivateFile\x12 .plugin.UploadPrivateFileRequest\x1a\x1a.plugin.UploadFileResponse\x12:\n" +
+	"\aCallAPI\x12\x16.plugin.CallAPIRequest\x1a\x17.plugin.CallAPIResponseB5Z3github.com/DaikonSushi/bot-platform/api/proto;protob\x06proto3"
 
 var (
 	file_api_proto_plugin_proto_rawDescOnce sync.Once
@@ -938,53 +1264,66 @@ func file_api_proto_plugin_proto_rawDescGZIP() []byte {
 	return file_api_proto_plugin_proto_rawDescData
 }
 
-var file_api_proto_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_api_proto_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_api_proto_plugin_proto_goTypes = []any{
-	(*Empty)(nil),               // 0: plugin.Empty
-	(*PluginInfo)(nil),          // 1: plugin.PluginInfo
-	(*MessageEvent)(nil),        // 2: plugin.MessageEvent
-	(*MessageSegment)(nil),      // 3: plugin.MessageSegment
-	(*CommandEvent)(nil),        // 4: plugin.CommandEvent
-	(*HandleResult)(nil),        // 5: plugin.HandleResult
-	(*SendMessageRequest)(nil),  // 6: plugin.SendMessageRequest
-	(*SendMessageResponse)(nil), // 7: plugin.SendMessageResponse
-	(*GetUserInfoRequest)(nil),  // 8: plugin.GetUserInfoRequest
-	(*UserInfo)(nil),            // 9: plugin.UserInfo
-	(*GetGroupInfoRequest)(nil), // 10: plugin.GetGroupInfoRequest
-	(*GroupInfo)(nil),           // 11: plugin.GroupInfo
-	(*LogRequest)(nil),          // 12: plugin.LogRequest
-	(*HealthResponse)(nil),      // 13: plugin.HealthResponse
-	nil,                         // 14: plugin.MessageSegment.DataEntry
+	(*Empty)(nil),                    // 0: plugin.Empty
+	(*PluginInfo)(nil),               // 1: plugin.PluginInfo
+	(*MessageEvent)(nil),             // 2: plugin.MessageEvent
+	(*MessageSegment)(nil),           // 3: plugin.MessageSegment
+	(*CommandEvent)(nil),             // 4: plugin.CommandEvent
+	(*HandleResult)(nil),             // 5: plugin.HandleResult
+	(*SendMessageRequest)(nil),       // 6: plugin.SendMessageRequest
+	(*SendMessageResponse)(nil),      // 7: plugin.SendMessageResponse
+	(*GetUserInfoRequest)(nil),       // 8: plugin.GetUserInfoRequest
+	(*UserInfo)(nil),                 // 9: plugin.UserInfo
+	(*GetGroupInfoRequest)(nil),      // 10: plugin.GetGroupInfoRequest
+	(*GroupInfo)(nil),                // 11: plugin.GroupInfo
+	(*LogRequest)(nil),               // 12: plugin.LogRequest
+	(*HealthResponse)(nil),           // 13: plugin.HealthResponse
+	(*UploadGroupFileRequest)(nil),   // 14: plugin.UploadGroupFileRequest
+	(*UploadPrivateFileRequest)(nil), // 15: plugin.UploadPrivateFileRequest
+	(*UploadFileResponse)(nil),       // 16: plugin.UploadFileResponse
+	(*CallAPIRequest)(nil),           // 17: plugin.CallAPIRequest
+	(*CallAPIResponse)(nil),          // 18: plugin.CallAPIResponse
+	nil,                              // 19: plugin.MessageSegment.DataEntry
+	nil,                              // 20: plugin.CallAPIRequest.ParamsEntry
 }
 var file_api_proto_plugin_proto_depIdxs = []int32{
 	3,  // 0: plugin.MessageEvent.segments:type_name -> plugin.MessageSegment
 	9,  // 1: plugin.MessageEvent.sender:type_name -> plugin.UserInfo
-	14, // 2: plugin.MessageSegment.data:type_name -> plugin.MessageSegment.DataEntry
+	19, // 2: plugin.MessageSegment.data:type_name -> plugin.MessageSegment.DataEntry
 	2,  // 3: plugin.CommandEvent.message:type_name -> plugin.MessageEvent
 	3,  // 4: plugin.SendMessageRequest.segments:type_name -> plugin.MessageSegment
-	0,  // 5: plugin.PluginService.GetInfo:input_type -> plugin.Empty
-	2,  // 6: plugin.PluginService.OnMessage:input_type -> plugin.MessageEvent
-	4,  // 7: plugin.PluginService.OnCommand:input_type -> plugin.CommandEvent
-	0,  // 8: plugin.PluginService.Health:input_type -> plugin.Empty
-	0,  // 9: plugin.PluginService.Shutdown:input_type -> plugin.Empty
-	6,  // 10: plugin.BotService.SendMessage:input_type -> plugin.SendMessageRequest
-	8,  // 11: plugin.BotService.GetUserInfo:input_type -> plugin.GetUserInfoRequest
-	10, // 12: plugin.BotService.GetGroupInfo:input_type -> plugin.GetGroupInfoRequest
-	12, // 13: plugin.BotService.Log:input_type -> plugin.LogRequest
-	1,  // 14: plugin.PluginService.GetInfo:output_type -> plugin.PluginInfo
-	5,  // 15: plugin.PluginService.OnMessage:output_type -> plugin.HandleResult
-	5,  // 16: plugin.PluginService.OnCommand:output_type -> plugin.HandleResult
-	13, // 17: plugin.PluginService.Health:output_type -> plugin.HealthResponse
-	0,  // 18: plugin.PluginService.Shutdown:output_type -> plugin.Empty
-	7,  // 19: plugin.BotService.SendMessage:output_type -> plugin.SendMessageResponse
-	9,  // 20: plugin.BotService.GetUserInfo:output_type -> plugin.UserInfo
-	11, // 21: plugin.BotService.GetGroupInfo:output_type -> plugin.GroupInfo
-	0,  // 22: plugin.BotService.Log:output_type -> plugin.Empty
-	14, // [14:23] is the sub-list for method output_type
-	5,  // [5:14] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	20, // 5: plugin.CallAPIRequest.params:type_name -> plugin.CallAPIRequest.ParamsEntry
+	0,  // 6: plugin.PluginService.GetInfo:input_type -> plugin.Empty
+	2,  // 7: plugin.PluginService.OnMessage:input_type -> plugin.MessageEvent
+	4,  // 8: plugin.PluginService.OnCommand:input_type -> plugin.CommandEvent
+	0,  // 9: plugin.PluginService.Health:input_type -> plugin.Empty
+	0,  // 10: plugin.PluginService.Shutdown:input_type -> plugin.Empty
+	6,  // 11: plugin.BotService.SendMessage:input_type -> plugin.SendMessageRequest
+	8,  // 12: plugin.BotService.GetUserInfo:input_type -> plugin.GetUserInfoRequest
+	10, // 13: plugin.BotService.GetGroupInfo:input_type -> plugin.GetGroupInfoRequest
+	12, // 14: plugin.BotService.Log:input_type -> plugin.LogRequest
+	14, // 15: plugin.BotService.UploadGroupFile:input_type -> plugin.UploadGroupFileRequest
+	15, // 16: plugin.BotService.UploadPrivateFile:input_type -> plugin.UploadPrivateFileRequest
+	17, // 17: plugin.BotService.CallAPI:input_type -> plugin.CallAPIRequest
+	1,  // 18: plugin.PluginService.GetInfo:output_type -> plugin.PluginInfo
+	5,  // 19: plugin.PluginService.OnMessage:output_type -> plugin.HandleResult
+	5,  // 20: plugin.PluginService.OnCommand:output_type -> plugin.HandleResult
+	13, // 21: plugin.PluginService.Health:output_type -> plugin.HealthResponse
+	0,  // 22: plugin.PluginService.Shutdown:output_type -> plugin.Empty
+	7,  // 23: plugin.BotService.SendMessage:output_type -> plugin.SendMessageResponse
+	9,  // 24: plugin.BotService.GetUserInfo:output_type -> plugin.UserInfo
+	11, // 25: plugin.BotService.GetGroupInfo:output_type -> plugin.GroupInfo
+	0,  // 26: plugin.BotService.Log:output_type -> plugin.Empty
+	16, // 27: plugin.BotService.UploadGroupFile:output_type -> plugin.UploadFileResponse
+	16, // 28: plugin.BotService.UploadPrivateFile:output_type -> plugin.UploadFileResponse
+	18, // 29: plugin.BotService.CallAPI:output_type -> plugin.CallAPIResponse
+	18, // [18:30] is the sub-list for method output_type
+	6,  // [6:18] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_plugin_proto_init() }
@@ -998,7 +1337,7 @@ func file_api_proto_plugin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_plugin_proto_rawDesc), len(file_api_proto_plugin_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

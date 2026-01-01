@@ -20,6 +20,7 @@ import (
 	"github.com/DaikonSushi/bot-platform/internal/server"
 	"github.com/DaikonSushi/bot-platform/plugins/echo"
 	"github.com/DaikonSushi/bot-platform/plugins/help"
+	"github.com/DaikonSushi/bot-platform/plugins/pluginctl"
 )
 
 func main() {
@@ -95,6 +96,7 @@ func main() {
 	if len(enabledPlugins) == 0 {
 		enabledPlugins["echo"] = true
 		enabledPlugins["help"] = true
+		enabledPlugins["pluginctl"] = true
 	}
 
 	if enabledPlugins["echo"] {
@@ -103,8 +105,13 @@ func main() {
 	}
 
 	if enabledPlugins["help"] {
-		b.RegisterPlugin(help.New(b.GetPluginManager(), extPluginMgr))
+		b.RegisterPlugin(help.New(b.GetPluginManager(), extPluginMgr, &cfg.Help))
 		log.Println("[Main] Registered built-in plugin: help")
+	}
+
+	if enabledPlugins["pluginctl"] && extPluginMgr != nil {
+		b.RegisterPlugin(pluginctl.New(extPluginMgr))
+		log.Println("[Main] Registered built-in plugin: pluginctl")
 	}
 
 	// Start admin server if enabled

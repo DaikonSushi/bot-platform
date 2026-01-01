@@ -3,12 +3,14 @@ version: '3.8'
 services:
   # NapCat - QQ Client
   napcat:
-    image: mlikiowa/napcat-docker:latest
+    image: docker.io/mlikiowa/napcat-docker:latest
     container_name: napcat
+    # Podman rootless mode compatibility
+    privileged: true
     environment:
       - NAPCAT_GID=0
       - NAPCAT_UID=0
-      - ACCOUNT=3824557104
+      - ACCOUNT=2577954317
       - WS_ENABLE=true
       - HTTP_ENABLE=true
       - HTTP_POST_ENABLE=false
@@ -17,14 +19,16 @@ services:
       - "3000:3000"   # HTTP API
       - "3001:3001"   # WebSocket
     volumes:
-      - ./napcat-data:/app/napcat/config
+      - ./napcat-data/napcat_config:/app/napcat/config
+      - ./napcat-data/qq_config:/app/.config/QQ
+      - ./shared-data:/shared-data
     restart: unless-stopped
     networks:
       - bot-network
 
   # Bot Platform
   bot-platform:
-    build: ./bot-platform
+    image: docker.io/daikonsushi/bot-platform:latest
     container_name: bot-platform
     depends_on:
       - napcat
@@ -38,6 +42,7 @@ services:
       - ./bot-platform/plugins-bin:/app/plugins-bin
       - ./bot-platform/plugins-config:/app/plugins-config
       - ./bot-platform/config.yaml:/app/config.yaml
+      - ./shared-data:/shared-data
     restart: unless-stopped
     networks:
       - bot-network

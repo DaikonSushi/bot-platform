@@ -18,6 +18,12 @@ type MessageSender interface {
 	SendPrivateMessage(userID int64, msg *message.Message) error
 	// SendGroupMessage sends a message with segments to a group
 	SendGroupMessage(groupID int64, msg *message.Message) error
+	// UploadGroupFile uploads a file to a group
+	UploadGroupFile(groupID int64, filePath, fileName, folder string) error
+	// UploadPrivateFile uploads a file to a private chat
+	UploadPrivateFile(userID int64, filePath, fileName string) error
+	// CallNapCatAPI calls a NapCat API directly
+	CallNapCatAPI(action string, params map[string]interface{}) ([]byte, error)
 }
 
 // Service implements pb.BotServiceServer
@@ -168,4 +174,69 @@ func (s *Service) GetGroupInfo(ctx context.Context, req *pb.GetGroupInfoRequest)
 func (s *Service) Log(ctx context.Context, req *pb.LogRequest) (*pb.Empty, error) {
 	log.Printf("[Plugin:Log:%s] %s", req.Level, req.Message)
 	return &pb.Empty{}, nil
+}
+
+// UploadGroupFile uploads a file to a group
+func (s *Service) UploadGroupFile(ctx context.Context, req *pb.UploadGroupFileRequest) (*pb.UploadFileResponse, error) {
+	log.Printf("[BotService] UploadGroupFile: groupId=%d, file=%s, name=%s, folder=%s",
+		req.GroupId, req.FilePath, req.FileName, req.Folder)
+	
+	folder := req.Folder
+	if folder == "" {
+		folder = "/"
+	}
+	
+	err := s.sender.UploadGroupFile(req.GroupId, req.FilePath, req.FileName, folder)
+	if err != nil {
+		return &pb.UploadFileResponse{
+			Success: false,
+			Error:   err.Error(),
+		}, nil
+	}
+	
+	return &pb.UploadFileResponse{
+		Success: true,
+	}, nil
+}
+
+// UploadPrivateFile uploads a file to a private chat
+func (s *Service) UploadPrivateFile(ctx context.Context, req *pb.UploadPrivateFileRequest) (*pb.UploadFileResponse, error) {
+	log.Printf("[BotService] UploadPrivateFile: userId=%d, file=%s, name=%s",
+		req.UserId, req.FilePath, req.FileName)
+	
+	err := s.sender.UploadPrivateFile(req.UserId, req.FilePath, req.FileName)
+	if err != nil {
+		return &pb.UploadFileResponse{
+			Success: false,
+			Error:   err.Error(),
+		}, nil
+	}
+	
+	return &pb.UploadFileResponse{
+		Success: true,
+	}, nil
+}
+
+// CallAPI calls a NapCat API directly
+func (s *Service) CallAPI(ctx context.Context, req *pb.CallAPIRequest) (*pb.CallAPIResponse, error) {
+	log.Printf("[BotService] CallAPI: action=%s, params=%v", req.Action, req.Params)
+	
+	// Convert string map to interface map
+	params := make(map[string]interface{})
+	for k, v := range req.Params {
+		params[k] = v
+	}
+	
+	data, err := s.sender.CallNapCatAPI(req.Action, params)
+	if err != nil {
+		return &pb.CallAPIResponse{
+			Success: false,
+			Error:   err.Error(),
+		}, nil
+	}
+	
+	return &pb.CallAPIResponse{
+		Success: true,
+		Data:    data,
+	}, nil
 }
