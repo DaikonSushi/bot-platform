@@ -40,7 +40,7 @@ func New(cfg *config.Config) *Bot {
 	return &Bot{
 		config: cfg,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 5 * time.Minute, // Increased timeout for large file uploads
 		},
 		pluginManager: plugin.NewManager(cfg.Bot.CommandPrefix),
 		stopChan:      make(chan struct{}),
