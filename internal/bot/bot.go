@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	pb "github.com/DaikonSushi/bot-platform/api/proto"
+	"github.com/DaikonSushi/bot-platform/internal/access"
 	"github.com/DaikonSushi/bot-platform/internal/config"
 	"github.com/DaikonSushi/bot-platform/internal/message"
 	"github.com/DaikonSushi/bot-platform/internal/plugin"
@@ -30,6 +31,7 @@ type Bot struct {
 	wsMu             sync.Mutex // Protects wsConn
 	pluginManager    *plugin.Manager
 	extPluginManager *pluginmgr.PluginManager
+	accessManager    *access.Manager
 	running          bool
 	mu               sync.RWMutex
 	stopChan         chan struct{}
@@ -55,6 +57,11 @@ func (b *Bot) RegisterPlugin(p plugin.Plugin) {
 // SetExternalPluginManager sets the external plugin manager
 func (b *Bot) SetExternalPluginManager(mgr *pluginmgr.PluginManager) {
 	b.extPluginManager = mgr
+}
+
+// SetAccessManager sets the plugin access control manager.
+func (b *Bot) SetAccessManager(mgr *access.Manager) {
+	b.accessManager = mgr
 }
 
 // Start starts the bot and connects to NapCat
@@ -247,6 +254,13 @@ func (b *Bot) dispatchToExternalPlugins(ctx *plugin.Context) {
 
 	cmd := parts[0]
 	args := parts[1:]
+	if pluginState := b.extPluginManager.GetPluginByCommand(cmd); pluginState != nil && b.accessManager != nil {
+		pbMsg := b.convertToPbMessageEvent(ctx.Event)
+		if !b.accessManager.CanUse(pluginState.Info.Name, pbMsg.UserId, pbMsg.GroupId, pbMsg.MessageType, pbMsg.IsAdmin) {
+			_ = b.Reply(ctx, message.NewMessage().Text(fmt.Sprintf("❌ 当前会话未启用插件 %s，请联系管理员授权。", pluginState.Info.Name)))
+			return
+		}
+	}
 
 	// Create command event
 	cmdEvent := &pb.CommandEvent{
@@ -271,6 +285,7 @@ func (b *Bot) convertToPbMessageEvent(event *message.Event) *pb.MessageEvent {
 		MessageType: string(event.MessageType),
 		RawMessage:  event.RawMessage,
 		Timestamp:   event.Time,
+		IsAdmin:     b.config.IsAdmin(event.UserID),
 		Sender: &pb.UserInfo{
 			UserId:   event.Sender.UserID,
 			Nickname: event.Sender.Nickname,
@@ -388,12 +403,12 @@ func (b *Bot) UploadGroupFile(groupID int64, filePath, fileName, folder string) 
 		"file":     filePath,
 		"name":     fileName,
 	}
-	
+
 	// Add folder parameter
 	if folder != "" {
 		params["folder"] = folder
 	}
-	
+
 	return b.callAPI("upload_group_file", params)
 }
 

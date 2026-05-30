@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	pb "github.com/DaikonSushi/bot-platform/api/proto"
+	"github.com/DaikonSushi/bot-platform/internal/access"
 	"github.com/DaikonSushi/bot-platform/internal/bot"
 	"github.com/DaikonSushi/bot-platform/internal/botservice"
 	"github.com/DaikonSushi/bot-platform/internal/config"
@@ -38,6 +39,15 @@ func main() {
 
 	// Create bot instance
 	b := bot.New(cfg)
+	var accessMgr *access.Manager
+	if cfg.AccessControl.Enabled {
+		accessMgr, err = access.New(cfg.AccessControl.ConfigFile)
+		if err != nil {
+			log.Fatalf("Failed to load access control: %v", err)
+		}
+		b.SetAccessManager(accessMgr)
+		log.Printf("[Main] Access control enabled: %s", cfg.AccessControl.ConfigFile)
+	}
 
 	// Start BotService gRPC server for external plugins to call back
 	grpcPort := cfg.PluginManager.GRPCPort
@@ -74,6 +84,7 @@ func main() {
 		if err := extPluginMgr.LoadInstalledPlugins(); err != nil {
 			log.Printf("[Main] Warning: failed to load installed plugins: %v", err)
 		}
+		extPluginMgr.SetAccessManager(accessMgr)
 
 		// Auto-start plugins
 		if len(cfg.PluginManager.AutoStart) > 0 {
@@ -110,7 +121,7 @@ func main() {
 	}
 
 	if enabledPlugins["pluginctl"] && extPluginMgr != nil {
-		b.RegisterPlugin(pluginctl.New(extPluginMgr))
+		b.RegisterPlugin(pluginctl.New(extPluginMgr, accessMgr))
 		log.Println("[Main] Registered built-in plugin: pluginctl")
 	}
 

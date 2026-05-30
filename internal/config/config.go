@@ -14,6 +14,7 @@ type Config struct {
 	AdminServer   AdminServerConfig   `yaml:"admin_server"`
 	Plugins       PluginsConfig       `yaml:"plugins"`
 	Help          HelpConfig          `yaml:"help"`
+	AccessControl AccessControlConfig `yaml:"access_control"`
 }
 
 // NapCatConfig holds NapCat connection settings
@@ -50,13 +51,18 @@ type PluginsConfig struct {
 	Enabled []string `yaml:"enabled"`
 }
 
+type AccessControlConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	ConfigFile string `yaml:"config_file"`
+}
+
 // HelpConfig holds help plugin customization settings
 type HelpConfig struct {
-	Title       string `yaml:"title"`        // Custom title for help menu
-	Description string `yaml:"description"` // Custom description/header text
-	Footer      string `yaml:"footer"`      // Custom footer text
-	ShowBuiltin bool   `yaml:"show_builtin"` // Show built-in plugins (default: true)
-	ShowExternal bool  `yaml:"show_external"` // Show external plugins (default: true)
+	Title        string `yaml:"title"`         // Custom title for help menu
+	Description  string `yaml:"description"`   // Custom description/header text
+	Footer       string `yaml:"footer"`        // Custom footer text
+	ShowBuiltin  bool   `yaml:"show_builtin"`  // Show built-in plugins (default: true)
+	ShowExternal bool   `yaml:"show_external"` // Show external plugins (default: true)
 }
 
 // Load reads and parses config from yaml file
@@ -86,6 +92,9 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.AdminServer.Addr == "" {
 		cfg.AdminServer.Addr = ":8080"
+	}
+	if cfg.AccessControl.ConfigFile == "" {
+		cfg.AccessControl.ConfigFile = "./plugins-config/plugin-access.json"
 	}
 	// Help defaults
 	if cfg.Help.Title == "" {

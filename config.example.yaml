@@ -31,6 +31,10 @@ plugin_manager:
   # Plugins to auto-start on boot (plugin names without extension)
   auto_start: []
 
+access_control:
+  enabled: true
+  config_file: "./plugins-config/plugin-access.json"
+
 # Admin API server
 admin_server:
   # Enable admin HTTP API for plugin management

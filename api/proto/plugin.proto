@@ -66,6 +66,7 @@ message MessageEvent {
   repeated MessageSegment segments = 6;
   int64 timestamp = 7;
   UserInfo sender = 8;
+  bool is_admin = 9;         // true if sender is configured as bot admin
 }
 
 message MessageSegment {

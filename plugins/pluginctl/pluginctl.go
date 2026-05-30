@@ -3,9 +3,11 @@ package pluginctl
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/DaikonSushi/bot-platform/internal/access"
 	"github.com/DaikonSushi/bot-platform/internal/message"
 	"github.com/DaikonSushi/bot-platform/internal/plugin"
 	"github.com/DaikonSushi/bot-platform/internal/pluginmgr"
@@ -15,10 +17,11 @@ import (
 type PluginCtlPlugin struct {
 	plugin.BasePlugin
 	extManager *pluginmgr.PluginManager
+	accessMgr  *access.Manager
 }
 
 // New creates a new plugin control plugin
-func New(extManager *pluginmgr.PluginManager) *PluginCtlPlugin {
+func New(extManager *pluginmgr.PluginManager, accessMgr *access.Manager) *PluginCtlPlugin {
 	return &PluginCtlPlugin{
 		BasePlugin: plugin.BasePlugin{
 			PluginName:        "pluginctl",
@@ -26,6 +29,7 @@ func New(extManager *pluginmgr.PluginManager) *PluginCtlPlugin {
 			PluginCommands:    []string{"plugin", "pm"},
 		},
 		extManager: extManager,
+		accessMgr:  accessMgr,
 	}
 }
 
@@ -67,10 +71,95 @@ func (p *PluginCtlPlugin) OnCommand(ctx *plugin.Context, cmd string, args []stri
 		return p.handleList(ctx, subArgs)
 	case "info":
 		return p.handleInfo(ctx, subArgs)
+	case "access":
+		return p.handleAccess(ctx, subArgs)
 	default:
 		p.showHelp(ctx)
 		return true
 	}
+}
+
+func (p *PluginCtlPlugin) handleAccess(ctx *plugin.Context, args []string) bool {
+	if p.accessMgr == nil {
+		ctx.Bot.Reply(ctx, message.NewMessage().Text("❌ Access control is not enabled."))
+		return true
+	}
+	if len(args) == 0 {
+		ctx.Bot.Reply(ctx, message.NewMessage().Text("Usage: /plugin access <list|allow|deny|allow-here|deny-here> ..."))
+		return true
+	}
+	switch args[0] {
+	case "allow-here", "deny-here":
+		if len(args) < 2 {
+			ctx.Bot.Reply(ctx, message.NewMessage().Text("Usage: /plugin access allow-here <plugin>"))
+			return true
+		}
+		scope, id := currentScope(ctx)
+		if id == 0 {
+			ctx.Bot.Reply(ctx, message.NewMessage().Text("❌ Cannot determine current chat."))
+			return true
+		}
+		var err error
+		if args[0] == "allow-here" {
+			err = p.accessMgr.Allow(scope, id, args[1])
+		} else {
+			err = p.accessMgr.Deny(scope, id, args[1])
+		}
+		if err != nil {
+			ctx.Bot.Reply(ctx, message.NewMessage().Text(fmt.Sprintf("❌ %v", err)))
+			return true
+		}
+		ctx.Bot.Reply(ctx, message.NewMessage().Text(fmt.Sprintf("✅ Updated access: %s %d %s", scope, id, args[1])))
+		return true
+	case "allow", "deny":
+		if len(args) < 4 {
+			ctx.Bot.Reply(ctx, message.NewMessage().Text("Usage: /plugin access allow <group|user> <id> <plugin>"))
+			return true
+		}
+		id, err := strconv.ParseInt(args[2], 10, 64)
+		if err != nil {
+			ctx.Bot.Reply(ctx, message.NewMessage().Text("❌ Invalid id."))
+			return true
+		}
+		if args[0] == "allow" {
+			err = p.accessMgr.Allow(args[1], id, args[3])
+		} else {
+			err = p.accessMgr.Deny(args[1], id, args[3])
+		}
+		if err != nil {
+			ctx.Bot.Reply(ctx, message.NewMessage().Text(fmt.Sprintf("❌ %v", err)))
+			return true
+		}
+		ctx.Bot.Reply(ctx, message.NewMessage().Text(fmt.Sprintf("✅ Updated access: %s %d %s", args[1], id, args[3])))
+		return true
+	case "list":
+		scope, id := currentScope(ctx)
+		if len(args) >= 3 {
+			scope = args[1]
+			parsed, err := strconv.ParseInt(args[2], 10, 64)
+			if err != nil {
+				ctx.Bot.Reply(ctx, message.NewMessage().Text("❌ Invalid id."))
+				return true
+			}
+			id = parsed
+		}
+		plugins := p.accessMgr.List(scope, id)
+		if len(plugins) == 0 {
+			ctx.Bot.Reply(ctx, message.NewMessage().Text(fmt.Sprintf("%s %d has no explicitly allowed plugins.", scope, id)))
+			return true
+		}
+		ctx.Bot.Reply(ctx, message.NewMessage().Text(fmt.Sprintf("%s %d plugins:\n- %s", scope, id, strings.Join(plugins, "\n- "))))
+		return true
+	}
+	ctx.Bot.Reply(ctx, message.NewMessage().Text("Usage: /plugin access <list|allow|deny|allow-here|deny-here> ..."))
+	return true
+}
+
+func currentScope(ctx *plugin.Context) (string, int64) {
+	if ctx.Event.MessageType == message.MessageTypeGroup {
+		return "group", ctx.Event.GroupID
+	}
+	return "user", ctx.Event.UserID
 }
 
 // showHelp displays help information

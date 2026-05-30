@@ -57,6 +57,7 @@ type Message struct {
 	Segments  []MessageSegment
 	Timestamp int64
 	Sender    *UserInfo
+	IsAdmin   bool
 }
 
 // MessageSegment represents a message segment
@@ -164,7 +165,7 @@ func (b *BotClient) UploadGroupFile(groupID int64, filePath, fileName string, fo
 	if len(folder) > 0 {
 		folderPath = folder[0]
 	}
-	
+
 	resp, err := b.client.UploadGroupFile(context.Background(), &pb.UploadGroupFileRequest{
 		GroupId:  groupID,
 		FilePath: filePath,
@@ -333,6 +334,7 @@ func convertMessage(event *pb.MessageEvent) *Message {
 		Segments:  segments,
 		Timestamp: event.Timestamp,
 		Sender:    sender,
+		IsAdmin:   event.IsAdmin,
 	}
 }
 

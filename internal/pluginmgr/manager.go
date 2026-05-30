@@ -16,6 +16,7 @@ import (
 	"time"
 
 	pb "github.com/DaikonSushi/bot-platform/api/proto"
+	"github.com/DaikonSushi/bot-platform/internal/access"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -110,6 +111,7 @@ type PluginManager struct {
 	grpcPort     int // BotService gRPC port for plugins to call back
 	botService   pb.BotServiceServer
 	commandIndex map[string]string // command -> plugin name
+	accessMgr    *access.Manager
 	healthTicker *time.Ticker
 	stopHealth   chan struct{}
 }
@@ -218,6 +220,10 @@ func (pm *PluginManager) handlePluginCrash(name string) {
 // SetBotService sets the bot service for plugins to call back
 func (pm *PluginManager) SetBotService(svc pb.BotServiceServer) {
 	pm.botService = svc
+}
+
+func (pm *PluginManager) SetAccessManager(mgr *access.Manager) {
+	pm.accessMgr = mgr
 }
 
 // InstallFromGitHub downloads and installs a plugin from GitHub releases
@@ -659,6 +665,9 @@ func (pm *PluginManager) DispatchMessage(ctx context.Context, event *pb.MessageE
 	pm.mu.RUnlock()
 
 	for _, plugin := range plugins {
+		if pm.accessMgr != nil && !pm.accessMgr.CanUse(plugin.Info.Name, event.UserId, event.GroupId, event.MessageType, event.IsAdmin) {
+			continue
+		}
 		go func(p *PluginState) {
 			_, err := p.Client.OnMessage(ctx, event)
 			if err != nil {
@@ -678,6 +687,10 @@ func (pm *PluginManager) DispatchCommand(ctx context.Context, event *pb.CommandE
 	}
 
 	log.Printf("[PluginMgr] Dispatching command '%s' to plugin '%s'", event.Command, plugin.Info.Name)
+	if pm.accessMgr != nil && !pm.accessMgr.CanUse(plugin.Info.Name, event.Message.UserId, event.Message.GroupId, event.Message.MessageType, event.Message.IsAdmin) {
+		log.Printf("[PluginMgr] Access denied: plugin=%s user=%d group=%d type=%s", plugin.Info.Name, event.Message.UserId, event.Message.GroupId, event.Message.MessageType)
+		return true
+	}
 	result, err := plugin.Client.OnCommand(ctx, event)
 	if err != nil {
 		log.Printf("[PluginMgr] Plugin %s OnCommand error: %v", plugin.Info.Name, err)
