@@ -36,13 +36,14 @@ type PluginState struct {
 
 // PluginMeta represents plugin metadata
 type PluginMeta struct {
-	Name        string   `json:"name"`
-	Version     string   `json:"version"`
-	Description string   `json:"description"`
-	Author      string   `json:"author"`
-	Commands    []string `json:"commands"`
-	RepoURL     string   `json:"repo_url"`    // GitHub repo URL
-	BinaryName  string   `json:"binary_name"` // Binary file name
+	Name              string   `json:"name"`
+	Version           string   `json:"version"`
+	Description       string   `json:"description"`
+	Author            string   `json:"author"`
+	Commands          []string `json:"commands"`
+	HandleAllMessages bool     `json:"handle_all_messages"`
+	RepoURL           string   `json:"repo_url"`    // GitHub repo URL
+	BinaryName        string   `json:"binary_name"` // Binary file name
 }
 
 // PortPool manages reusable ports
@@ -653,27 +654,39 @@ func (pm *PluginManager) GetAllCommands() map[string]*PluginMeta {
 	return result
 }
 
-// DispatchMessage dispatches a message to all running plugins
+// DispatchMessage dispatches a message to running plugins.
+// Agent-style catch-all plugins must run last so domain plugins can claim
+// keyword-based messages first.
 func (pm *PluginManager) DispatchMessage(ctx context.Context, event *pb.MessageEvent) {
 	pm.mu.RLock()
-	plugins := make([]*PluginState, 0)
+	primary := make([]*PluginState, 0)
+	catchAll := make([]*PluginState, 0)
 	for _, state := range pm.plugins {
-		if state.Status == "running" {
-			plugins = append(plugins, state)
+		if state.Status != "running" {
+			continue
+		}
+		if state.Info != nil && state.Info.Name == "agent" {
+			catchAll = append(catchAll, state)
+		} else {
+			primary = append(primary, state)
 		}
 	}
 	pm.mu.RUnlock()
 
+	plugins := append(primary, catchAll...)
 	for _, plugin := range plugins {
 		if pm.accessMgr != nil && !pm.accessMgr.CanUse(plugin.Info.Name, event.UserId, event.GroupId, event.MessageType, event.IsAdmin) {
 			continue
 		}
-		go func(p *PluginState) {
-			_, err := p.Client.OnMessage(ctx, event)
-			if err != nil {
-				log.Printf("[PluginMgr] Plugin %s OnMessage error: %v", p.Info.Name, err)
-			}
-		}(plugin)
+		result, err := plugin.Client.OnMessage(ctx, event)
+		if err != nil {
+			log.Printf("[PluginMgr] Plugin %s OnMessage error: %v", plugin.Info.Name, err)
+			continue
+		}
+		if result.GetHandled() {
+			log.Printf("[PluginMgr] Message handled by plugin '%s'", plugin.Info.Name)
+			return
+		}
 	}
 }
 
