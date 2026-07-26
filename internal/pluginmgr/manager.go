@@ -229,12 +229,10 @@ func (pm *PluginManager) SetAccessManager(mgr *access.Manager) {
 
 // InstallFromGitHub downloads and installs a plugin from GitHub releases
 func (pm *PluginManager) InstallFromGitHub(ctx context.Context, repoURL string) (*PluginMeta, error) {
-	// Parse repo URL: https://github.com/owner/repo
-	parts := strings.Split(strings.TrimPrefix(repoURL, "https://github.com/"), "/")
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid GitHub URL: %s", repoURL)
+	owner, repo, normalizedRepoURL, err := parseGitHubRepo(repoURL)
+	if err != nil {
+		return nil, err
 	}
-	owner, repo := parts[0], parts[1]
 
 	// Get latest release info
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
@@ -303,17 +301,54 @@ func (pm *PluginManager) InstallFromGitHub(ctx context.Context, repoURL string) 
 		os.Remove(pluginPath)
 		return nil, fmt.Errorf("failed to get plugin info: %w", err)
 	}
-	meta.RepoURL = repoURL
+	meta.RepoURL = normalizedRepoURL
 	meta.BinaryName = binaryName
 
 	// Save plugin meta
+	if err := os.MkdirAll(pm.configDir, 0755); err != nil {
+		os.Remove(pluginPath)
+		return nil, fmt.Errorf("failed to create plugin config dir: %w", err)
+	}
 	metaPath := filepath.Join(pm.configDir, meta.Name+".json")
-	metaFile, _ := os.Create(metaPath)
-	json.NewEncoder(metaFile).Encode(meta)
-	metaFile.Close()
+	metaFile, err := os.Create(metaPath)
+	if err != nil {
+		os.Remove(pluginPath)
+		return nil, fmt.Errorf("failed to save plugin meta: %w", err)
+	}
+	if err := json.NewEncoder(metaFile).Encode(meta); err != nil {
+		metaFile.Close()
+		os.Remove(pluginPath)
+		return nil, fmt.Errorf("failed to encode plugin meta: %w", err)
+	}
+	if err := metaFile.Close(); err != nil {
+		os.Remove(pluginPath)
+		return nil, fmt.Errorf("failed to close plugin meta: %w", err)
+	}
 
 	log.Printf("[PluginMgr] Installed plugin: %s v%s", meta.Name, meta.Version)
 	return meta, nil
+}
+
+func parseGitHubRepo(repoURL string) (owner, repo, normalized string, err error) {
+	repoURL = strings.TrimSpace(repoURL)
+	repoURL = strings.TrimSuffix(repoURL, ".git")
+	repoURL = strings.TrimSuffix(repoURL, "/")
+
+	switch {
+	case strings.HasPrefix(repoURL, "https://github.com/"):
+		repoURL = strings.TrimPrefix(repoURL, "https://github.com/")
+	case strings.HasPrefix(repoURL, "http://github.com/"):
+		repoURL = strings.TrimPrefix(repoURL, "http://github.com/")
+	case strings.HasPrefix(repoURL, "git@github.com:"):
+		repoURL = strings.TrimPrefix(repoURL, "git@github.com:")
+	}
+
+	parts := strings.Split(repoURL, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", "", fmt.Errorf("invalid GitHub URL: %s", repoURL)
+	}
+
+	return parts[0], parts[1], fmt.Sprintf("https://github.com/%s/%s", parts[0], parts[1]), nil
 }
 
 // downloadFile downloads a file from URL
@@ -324,6 +359,13 @@ func (pm *PluginManager) downloadFile(ctx context.Context, url, dest string) err
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("download returned HTTP %d", resp.StatusCode)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return err
+	}
 
 	out, err := os.Create(dest)
 	if err != nil {
@@ -351,6 +393,67 @@ func (pm *PluginManager) getPluginInfo(binaryPath string) (*PluginMeta, error) {
 		return nil, err
 	}
 	return &meta, nil
+}
+
+// UpdatePlugin reinstalls a plugin from its recorded repository and restores its running state.
+func (pm *PluginManager) UpdatePlugin(ctx context.Context, name string) (*PluginMeta, bool, error) {
+	meta, wasRunning, err := pm.findInstalledPlugin(name)
+	if err != nil {
+		return nil, false, err
+	}
+	if strings.TrimSpace(meta.RepoURL) == "" {
+		return nil, wasRunning, fmt.Errorf("plugin %s has no repo_url; reinstall it with /plugin install <repo_url>", name)
+	}
+
+	if wasRunning {
+		if err := pm.StopPlugin(ctx, name); err != nil {
+			return nil, wasRunning, fmt.Errorf("failed to stop plugin before update: %w", err)
+		}
+	}
+
+	updated, err := pm.InstallFromGitHub(ctx, meta.RepoURL)
+	if err != nil {
+		if wasRunning {
+			if startErr := pm.StartPlugin(context.Background(), name); startErr != nil {
+				return nil, wasRunning, fmt.Errorf("update failed: %w; also failed to restart existing plugin: %v", err, startErr)
+			}
+		}
+		return nil, wasRunning, err
+	}
+	if updated.Name != name {
+		return updated, wasRunning, fmt.Errorf("updated plugin name mismatch: expected %s, got %s", name, updated.Name)
+	}
+
+	if wasRunning {
+		if err := pm.StartPlugin(ctx, name); err != nil {
+			return updated, wasRunning, fmt.Errorf("plugin updated but failed to restart: %w", err)
+		}
+	}
+	return updated, wasRunning, nil
+}
+
+func (pm *PluginManager) findInstalledPlugin(name string) (*PluginMeta, bool, error) {
+	pm.mu.RLock()
+	if state, exists := pm.plugins[name]; exists && state.Info != nil {
+		meta := *state.Info
+		wasRunning := state.Status == "running"
+		pm.mu.RUnlock()
+		return &meta, wasRunning, nil
+	}
+	pm.mu.RUnlock()
+
+	metaPath := filepath.Join(pm.configDir, name+".json")
+	metaFile, err := os.Open(metaPath)
+	if err != nil {
+		return nil, false, fmt.Errorf("plugin %s not found, install it first", name)
+	}
+	defer metaFile.Close()
+
+	var meta PluginMeta
+	if err := json.NewDecoder(metaFile).Decode(&meta); err != nil {
+		return nil, false, fmt.Errorf("invalid plugin meta: %w", err)
+	}
+	return &meta, false, nil
 }
 
 // StartPlugin starts a plugin by name

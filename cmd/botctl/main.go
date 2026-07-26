@@ -59,6 +59,18 @@ func main() {
 			os.Exit(1)
 		}
 		stopPlugin(addr, os.Args[2])
+	case "restart", "reload":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: botctl restart <plugin_name>")
+			os.Exit(1)
+		}
+		restartPlugin(addr, os.Args[2])
+	case "update", "upgrade":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: botctl update <plugin_name>")
+			os.Exit(1)
+		}
+		updatePlugin(addr, os.Args[2])
 	case "uninstall", "rm":
 		if len(os.Args) < 3 {
 			fmt.Println("Usage: botctl uninstall <plugin_name>")
@@ -88,6 +100,8 @@ Commands:
                                 --start, -s: Auto-start after install
   start <name>                  Start a plugin
   stop <name>                   Stop a running plugin
+  restart, reload <name>        Restart a plugin
+  update, upgrade <name>        Install latest release and restore state
   uninstall, rm <name>          Uninstall a plugin
   health                        Check platform health
   help                          Show this help
@@ -101,6 +115,7 @@ Examples:
   botctl install --start DaikonSushi/plugin-echo
   botctl start weather
   botctl stop weather
+  botctl update weather
   botctl uninstall weather`)
 }
 
@@ -198,6 +213,34 @@ func stopPlugin(addr, name string) {
 	printResult(resp.Body)
 }
 
+func restartPlugin(addr, name string) {
+	fmt.Printf("Restarting plugin %s...\n", name)
+
+	body, _ := json.Marshal(map[string]string{"name": name})
+	resp, err := http.Post(addr+"/api/plugins/restart", "application/json", bytes.NewReader(body))
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	printResult(resp.Body)
+}
+
+func updatePlugin(addr, name string) {
+	fmt.Printf("Updating plugin %s...\n", name)
+
+	body, _ := json.Marshal(map[string]string{"name": name})
+	resp, err := http.Post(addr+"/api/plugins/update", "application/json", bytes.NewReader(body))
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	printUpdateResult(resp.Body)
+}
+
 func uninstallPlugin(addr, name string) {
 	fmt.Printf("Uninstalling plugin %s...\n", name)
 
@@ -255,6 +298,37 @@ func printResult(body io.Reader) {
 	}
 
 	fmt.Printf("✅ %s\n", result.Message)
+}
+
+func printUpdateResult(body io.Reader) {
+	var result struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			Name      string `json:"name"`
+			Version   string `json:"version"`
+			Restarted bool   `json:"restarted"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(body).Decode(&result); err != nil {
+		fmt.Printf("Error parsing response: %v\n", err)
+		os.Exit(1)
+	}
+
+	if result.Code != 0 {
+		fmt.Printf("❌ Error: %s\n", result.Message)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✅ %s\n", result.Message)
+	fmt.Printf("   Name: %s\n", result.Data.Name)
+	fmt.Printf("   Version: %s\n", result.Data.Version)
+	if result.Data.Restarted {
+		fmt.Printf("   Status: 🟢 restarted\n")
+	} else {
+		fmt.Printf("   Status: 🔴 left stopped\n")
+	}
 }
 
 func printInstallResult(body io.Reader, autoStart bool) {

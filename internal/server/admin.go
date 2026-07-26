@@ -30,6 +30,8 @@ func (s *AdminServer) Start() error {
 	mux.HandleFunc("/api/plugins/install", s.handleInstall)
 	mux.HandleFunc("/api/plugins/start", s.handleStart)
 	mux.HandleFunc("/api/plugins/stop", s.handleStop)
+	mux.HandleFunc("/api/plugins/restart", s.handleRestart)
+	mux.HandleFunc("/api/plugins/update", s.handleUpdate)
 	mux.HandleFunc("/api/plugins/uninstall", s.handleUninstall)
 	mux.HandleFunc("/api/health", s.handleHealth)
 
@@ -188,6 +190,58 @@ func (s *AdminServer) handleStop(w http.ResponseWriter, r *http.Request) {
 	jsonSuccess(w, "Plugin stopped successfully")
 }
 
+func (s *AdminServer) handleRestart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name, ok := decodePluginName(w, r)
+	if !ok {
+		return
+	}
+
+	if err := s.pm.StopPlugin(r.Context(), name); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.pm.StartPlugin(r.Context(), name); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	jsonSuccess(w, "Plugin restarted successfully")
+}
+
+func (s *AdminServer) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name, ok := decodePluginName(w, r)
+	if !ok {
+		return
+	}
+
+	meta, restarted, err := s.pm.UpdatePlugin(r.Context(), name)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"code":    0,
+		"message": "Plugin updated successfully",
+		"data": map[string]interface{}{
+			"name":      meta.Name,
+			"version":   meta.Version,
+			"restarted": restarted,
+		},
+	})
+}
+
 // handleUninstall uninstalls a plugin
 func (s *AdminServer) handleUninstall(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -214,6 +268,22 @@ func (s *AdminServer) handleUninstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonSuccess(w, "Plugin uninstalled successfully")
+}
+
+func decodePluginName(w http.ResponseWriter, r *http.Request) (string, bool) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Invalid request body", http.StatusBadRequest)
+		return "", false
+	}
+
+	if req.Name == "" {
+		jsonError(w, "name is required", http.StatusBadRequest)
+		return "", false
+	}
+	return req.Name, true
 }
 
 // handleHealth returns health status

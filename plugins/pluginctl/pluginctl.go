@@ -65,6 +65,10 @@ func (p *PluginCtlPlugin) OnCommand(ctx *plugin.Context, cmd string, args []stri
 		return p.handleStop(ctx, subArgs)
 	case "restart":
 		return p.handleRestart(ctx, subArgs)
+	case "reload":
+		return p.handleReload(ctx, subArgs)
+	case "update", "upgrade":
+		return p.handleUpdate(ctx, subArgs)
 	case "uninstall", "remove":
 		return p.handleUninstall(ctx, subArgs)
 	case "list", "ls":
@@ -181,6 +185,12 @@ Commands:
   
   restart <name>        Restart a plugin
                         Example: /pm restart weather
+
+  reload <name>         Alias for restart
+                        Example: /pm reload weather
+
+  update <name>         Download latest GitHub release and restore state
+                        Example: /pm update weather
   
   uninstall <name>      Uninstall a plugin
                         Example: /pm uninstall weather
@@ -333,6 +343,41 @@ func (p *PluginCtlPlugin) handleRestart(ctx *plugin.Context, args []string) bool
 	}
 
 	msg = message.NewMessage().Text(fmt.Sprintf("✅ Plugin '%s' restarted successfully!", name))
+	ctx.Bot.Reply(ctx, msg)
+	return true
+}
+
+func (p *PluginCtlPlugin) handleReload(ctx *plugin.Context, args []string) bool {
+	return p.handleRestart(ctx, args)
+}
+
+func (p *PluginCtlPlugin) handleUpdate(ctx *plugin.Context, args []string) bool {
+	if len(args) == 0 {
+		msg := message.NewMessage().Text("❌ Usage: /plugin update <name>\nExample: /plugin update weather")
+		ctx.Bot.Reply(ctx, msg)
+		return true
+	}
+
+	name := args[0]
+
+	msg := message.NewMessage().Text(fmt.Sprintf("⏳ Updating plugin '%s' from its GitHub release...", name))
+	ctx.Bot.Reply(ctx, msg)
+
+	updateCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	meta, restarted, err := p.extManager.UpdatePlugin(updateCtx, name)
+	if err != nil {
+		msg := message.NewMessage().Text(fmt.Sprintf("❌ Failed to update plugin: %v", err))
+		ctx.Bot.Reply(ctx, msg)
+		return true
+	}
+
+	status := "left stopped"
+	if restarted {
+		status = "restarted"
+	}
+	msg = message.NewMessage().Text(fmt.Sprintf("✅ Plugin '%s' updated to v%s and %s.", meta.Name, meta.Version, status))
 	ctx.Bot.Reply(ctx, msg)
 	return true
 }
