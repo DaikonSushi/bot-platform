@@ -137,6 +137,8 @@ func listPlugins(addr string) {
 			Author      string   `json:"author"`
 			Commands    []string `json:"commands"`
 			Status      string   `json:"status"`
+			Priority    int32    `json:"message_priority"`
+			Fallback    bool     `json:"fallback"`
 		} `json:"data"`
 	}
 
@@ -156,8 +158,8 @@ func listPlugins(addr string) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tVERSION\tSTATUS\tCOMMANDS\tDESCRIPTION")
-	fmt.Fprintln(w, "----\t-------\t------\t--------\t-----------")
+	fmt.Fprintln(w, "NAME\tVERSION\tSTATUS\tPRIORITY\tFALLBACK\tCOMMANDS\tDESCRIPTION")
+	fmt.Fprintln(w, "----\t-------\t------\t--------\t--------\t--------\t-----------")
 	for _, p := range result.Data {
 		cmds := ""
 		for i, c := range p.Commands {
@@ -166,7 +168,7 @@ func listPlugins(addr string) {
 			}
 			cmds += "/" + c
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", p.Name, p.Version, p.Status, cmds, p.Description)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%t\t%s\t%s\n", p.Name, p.Version, p.Status, p.Priority, p.Fallback, cmds, p.Description)
 	}
 	w.Flush()
 }

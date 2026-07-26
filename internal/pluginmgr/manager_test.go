@@ -2,6 +2,42 @@ package pluginmgr
 
 import "testing"
 
+func TestSortMessagePluginsFallbackLast(t *testing.T) {
+	plugins := []*PluginState{
+		{Info: &PluginMeta{Name: "agent", Fallback: true, MessagePriority: -1000}},
+		{Info: &PluginMeta{Name: "normal", MessagePriority: 0}},
+		{Info: &PluginMeta{Name: "early", MessagePriority: 100}},
+	}
+
+	sortMessagePlugins(plugins)
+
+	got := []string{plugins[0].Info.Name, plugins[1].Info.Name, plugins[2].Info.Name}
+	want := []string{"early", "normal", "agent"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got order %v want %v", got, want)
+		}
+	}
+}
+
+func TestSortMessagePluginsFallbackPriority(t *testing.T) {
+	plugins := []*PluginState{
+		{Info: &PluginMeta{Name: "agent-low", Fallback: true, MessagePriority: -1000}},
+		{Info: &PluginMeta{Name: "agent-high", Fallback: true, MessagePriority: -10}},
+		{Info: &PluginMeta{Name: "domain", MessagePriority: -9999}},
+	}
+
+	sortMessagePlugins(plugins)
+
+	got := []string{plugins[0].Info.Name, plugins[1].Info.Name, plugins[2].Info.Name}
+	want := []string{"domain", "agent-high", "agent-low"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got order %v want %v", got, want)
+		}
+	}
+}
+
 func TestParseGitHubRepo(t *testing.T) {
 	tests := []struct {
 		name      string

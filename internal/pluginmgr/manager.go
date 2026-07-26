@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +43,8 @@ type PluginMeta struct {
 	Author            string   `json:"author"`
 	Commands          []string `json:"commands"`
 	HandleAllMessages bool     `json:"handle_all_messages"`
+	MessagePriority   int32    `json:"message_priority,omitempty"`
+	Fallback          bool     `json:"fallback,omitempty"`
 	RepoURL           string   `json:"repo_url"`    // GitHub repo URL
 	BinaryName        string   `json:"binary_name"` // Binary file name
 }
@@ -758,25 +761,21 @@ func (pm *PluginManager) GetAllCommands() map[string]*PluginMeta {
 }
 
 // DispatchMessage dispatches a message to running plugins.
-// Agent-style catch-all plugins must run last so domain plugins can claim
-// keyword-based messages first.
+// Plugins are ordered like a lightweight message pipeline:
+// higher message_priority first, fallback plugins last. This keeps domain
+// plugins ahead of catch-all agents without hard-coding plugin names.
 func (pm *PluginManager) DispatchMessage(ctx context.Context, event *pb.MessageEvent) {
 	pm.mu.RLock()
-	primary := make([]*PluginState, 0)
-	catchAll := make([]*PluginState, 0)
+	plugins := make([]*PluginState, 0)
 	for _, state := range pm.plugins {
 		if state.Status != "running" {
 			continue
 		}
-		if state.Info != nil && state.Info.Name == "agent" {
-			catchAll = append(catchAll, state)
-		} else {
-			primary = append(primary, state)
-		}
+		plugins = append(plugins, state)
 	}
 	pm.mu.RUnlock()
 
-	plugins := append(primary, catchAll...)
+	sortMessagePlugins(plugins)
 	for _, plugin := range plugins {
 		if pm.accessMgr != nil && !pm.accessMgr.CanUse(plugin.Info.Name, event.UserId, event.GroupId, event.MessageType, event.IsAdmin) {
 			continue
@@ -791,6 +790,22 @@ func (pm *PluginManager) DispatchMessage(ctx context.Context, event *pb.MessageE
 			return
 		}
 	}
+}
+
+func sortMessagePlugins(plugins []*PluginState) {
+	sort.SliceStable(plugins, func(i, j int) bool {
+		left, right := plugins[i].Info, plugins[j].Info
+		if left == nil || right == nil {
+			return right == nil
+		}
+		if left.Fallback != right.Fallback {
+			return !left.Fallback
+		}
+		if left.MessagePriority != right.MessagePriority {
+			return left.MessagePriority > right.MessagePriority
+		}
+		return left.Name < right.Name
+	})
 }
 
 // DispatchCommand dispatches a command to the appropriate plugin

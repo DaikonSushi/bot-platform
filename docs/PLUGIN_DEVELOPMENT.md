@@ -40,7 +40,9 @@ The `--info` output must be JSON with at least:
   "description": "Short description",
   "author": "DaikonSushi",
   "commands": ["myplugin"],
-  "handle_all_messages": false
+  "handle_all_messages": false,
+  "message_priority": 0,
+  "fallback": false
 }
 ```
 
@@ -64,7 +66,7 @@ botctl restart myplugin
 
 ## Agent Plugins
 
-Agent-style plugins should set `handle_all_messages` to `true` and usually expose a command such as `agent` or `chat` for explicit control. The platform dispatches normal command and domain plugins first, then dispatches catch-all agent plugins last, so a broad conversational plugin does not steal messages from purpose-built plugins.
+Agent-style plugins should set `handle_all_messages` to `true`, `fallback` to `true`, and usually expose a command such as `agent` or `chat` for explicit control. The platform dispatches non-fallback plugins first, ordered by higher `message_priority`, then fallback plugins. This lets a broad conversational plugin stay available without stealing messages from purpose-built plugins.
 
 Recommended behavior:
 

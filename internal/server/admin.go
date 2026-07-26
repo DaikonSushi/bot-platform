@@ -48,25 +48,31 @@ func (s *AdminServer) handlePlugins(w http.ResponseWriter, r *http.Request) {
 	plugins := s.pm.ListPlugins()
 
 	type pluginResponse struct {
-		Name        string   `json:"name"`
-		Version     string   `json:"version"`
-		Description string   `json:"description"`
-		Author      string   `json:"author"`
-		Commands    []string `json:"commands"`
-		Status      string   `json:"status"`
-		RepoURL     string   `json:"repo_url,omitempty"`
+		Name              string   `json:"name"`
+		Version           string   `json:"version"`
+		Description       string   `json:"description"`
+		Author            string   `json:"author"`
+		Commands          []string `json:"commands"`
+		Status            string   `json:"status"`
+		HandleAllMessages bool     `json:"handle_all_messages"`
+		MessagePriority   int32    `json:"message_priority"`
+		Fallback          bool     `json:"fallback"`
+		RepoURL           string   `json:"repo_url,omitempty"`
 	}
 
 	result := make([]pluginResponse, 0)
 	for _, p := range plugins {
 		result = append(result, pluginResponse{
-			Name:        p.Info.Name,
-			Version:     p.Info.Version,
-			Description: p.Info.Description,
-			Author:      p.Info.Author,
-			Commands:    p.Info.Commands,
-			Status:      p.Status,
-			RepoURL:     p.Info.RepoURL,
+			Name:              p.Info.Name,
+			Version:           p.Info.Version,
+			Description:       p.Info.Description,
+			Author:            p.Info.Author,
+			Commands:          p.Info.Commands,
+			Status:            p.Status,
+			HandleAllMessages: p.Info.HandleAllMessages,
+			MessagePriority:   p.Info.MessagePriority,
+			Fallback:          p.Info.Fallback,
+			RepoURL:           p.Info.RepoURL,
 		})
 	}
 

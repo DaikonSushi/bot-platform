@@ -45,6 +45,8 @@ type PluginInfo struct {
 	Author            string   `json:"author"`
 	Commands          []string `json:"commands"`
 	HandleAllMessages bool     `json:"handle_all_messages"`
+	MessagePriority   int32    `json:"message_priority,omitempty"`
+	Fallback          bool     `json:"fallback,omitempty"`
 }
 
 // Message represents an incoming message
